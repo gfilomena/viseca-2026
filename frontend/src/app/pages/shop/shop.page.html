@@ -140,10 +140,9 @@
                       @if (i.breaches) { <div class="callout warn">Approving now would bring your {{ i.rule }} total to {{ i.total_if_approved_chf | currency: 'CHF ' }} (limit {{ i.limit_chf | currency: 'CHF ' }}).</div> }
                     }
                     <div class="row">
-                      <span class="faint">Your decision · {{ secondsLeft(d) }}s left</span>
+                      <span class="faint">Waiting for your decision · {{ secondsLeft(d) }}s left</span>
                       <span class="spacer"></span>
-                      <button class="btn decline" (click)="resolve(d.authorization_id, 'decline')">Decline</button>
-                      <button class="btn approve" (click)="resolve(d.authorization_id, 'approve')">Approve</button>
+                      <button class="btn primary" (click)="decideNow(d.authorization_id)">Decide now</button>
                     </div>
                   }
                 </div>

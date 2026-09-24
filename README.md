@@ -106,8 +106,14 @@ The home page is a chat with a **simulated shopping agent**, to try wallet contr
    text — with its assumptions and questions (e.g. a shop name that imitates one you know). Every
    field can be edited, including the untrusted shop text, to try a prompt injection.
 3. **Try to buy**: the agent submits it as a schema-valid authorization event and wallet control
-   answers `approve`, `decline` or `step_up`, with the checks and evidence. A step-up can be approved
-   or declined right in the chat.
+   answers `approve`, `decline` or `step_up`, with the checks and evidence.
+
+**Asked you = an answer is expected.** Every step-up — from the chat, a scenario replay or the hosted
+simulator — opens a modal on any page: why it was paused, what exactly would be bought (with the
+untrusted shop text, flagged if it tried to give instructions), the impact on rolling limits and a
+countdown, with **Approve** / **Decline** and an optional note. Several step-ups queue oldest first.
+*Later* (or Esc) only defers it; it stays pending in the inbox, and if nobody answers in time the
+purchase is not made. Each answer is logged by the backend (`[resolve]` with origin and user agent).
 
 As the brief requires, wallet control is independent of the agent: the request and the offer can
 never change the policy, which is read as currently confirmed (tightening applies immediately,

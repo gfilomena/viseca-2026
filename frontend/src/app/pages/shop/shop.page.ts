@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService, errorText } from '../../core/api.service';
 import { LiveService } from '../../core/live.service';
+import { StepUpService } from '../../core/step-up.service';
 import type { Check, DecisionRow, InterpretedRequest, Mandate, PurchaseOffer, ShopOptions } from '../../core/models';
 
 type ChatMessage =
@@ -49,6 +50,7 @@ export class ShopPage {
   private api = inject(ApiService);
   private live = inject(LiveService);
   protected chat = inject(ShopChatStore);
+  protected stepUps = inject(StepUpService);
   private scroller = viewChild<ElementRef<HTMLElement>>('scroller');
 
   protected readonly suggestions = SUGGESTIONS;
@@ -108,8 +110,14 @@ export class ShopPage {
       const map: Record<string, DecisionRow> = {};
       for (const r of all) map[r.authorization_id] = r;
       const shown = this.chat.messages().filter((m) => m.kind === 'decision').map((m) => (m as { authorizationId: string }).authorizationId);
-      const next = { ...this.decisions() };
-      for (const id of shown) if (map[id]) next[id] = { ...next[id], ...map[id], checks: next[id]?.checks ?? map[id].checks };
+      const prev = this.decisions();
+      const next = { ...prev };
+      for (const id of shown) {
+        if (!map[id]) continue;
+        next[id] = { ...next[id], ...map[id], checks: next[id]?.checks ?? map[id].checks };
+        // Tell the story in the chat when a paused purchase gets its answer (modal, inbox or timeout).
+        if (prev[id]?.status === 'pending' && map[id].status !== 'pending') this.chat.push({ kind: 'bot', text: this.outcomeText(map[id]) });
+      }
       this.decisions.set(next);
     } catch { /* the header shows connectivity */ }
   }
@@ -154,6 +162,8 @@ export class ShopPage {
       this.chat.update(msg.id, { state: 'sent' } as Partial<ChatMessage>);
       this.decisions.update((all) => ({ ...all, [d.authorization_id]: d }));
       this.chat.push({ kind: 'decision', authorizationId: d.authorization_id });
+      // "Ask me" means an answer is expected now: open the approve/decline modal.
+      if (d.status === 'pending') this.stepUps.open(d.authorization_id);
       this.refresh();
     } catch (e) {
       this.chat.push({ kind: 'bot', text: errorText(e), tone: 'error' });
@@ -162,15 +172,12 @@ export class ShopPage {
     }
   }
 
-  protected async resolve(id: string, decision: 'approve' | 'decline') {
-    try {
-      const d = await this.api.resolve(id, decision);
-      this.decisions.update((all) => ({ ...all, [id]: { ...all[id], ...d } }));
-      this.chat.push({ kind: 'bot', text: decision === 'approve' ? 'You approved it: the purchase goes through.' : 'You declined it: nothing was paid.' });
-      this.refresh();
-    } catch (e) {
-      this.chat.push({ kind: 'bot', text: errorText(e), tone: 'error' });
-    }
+  protected decideNow(id: string) { this.stepUps.open(id); }
+
+  private outcomeText(d: DecisionRow) {
+    if (d.status === 'approved') return `You approved it: ${d.merchant_name} is paid ${d.billing_amount_chf.toFixed(2)} CHF.`;
+    if (d.status === 'expired') return 'No answer in time, so nothing was paid.';
+    return d.resolved_by === 'revocation' ? 'Declined: you revoked the wallet policy.' : 'You declined it: nothing was paid.';
   }
 
   protected newChat() { this.chat.clear(); }
