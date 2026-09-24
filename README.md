@@ -120,6 +120,7 @@ unchanged, so behaviour stays predictable.
 | Field | Meaning |
 | --- | --- |
 | `authorization.billing_amount_chf` | Charged amount incl. delivery; `scope: purchase` per order, `scope: period` + `period_days` rolling window of approved spend |
+| `authorization.currency` | The currency the purchase is charged in (not the amount) |
 | `items.item_id` / `items.item_category` | Every cart line must satisfy the rule |
 | `items.attribute.size` | Size stated in shop text for the requested product (missing → uncertain) |
 | `items.quantity_total` | Units in the basket |

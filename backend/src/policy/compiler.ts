@@ -36,6 +36,7 @@ export interface PolicyDraft {
 // Field vocabulary understood by the engine (see README "Rule vocabulary").
 export const FIELDS = {
   amount: 'authorization.billing_amount_chf',
+  currency: 'authorization.currency',
   fulfillment: 'authorization.fulfillment_method',
   returnDays: 'authorization.return_window_days',
   deliveryDays: 'authorization.delivery_within_days',
@@ -259,6 +260,10 @@ export function compileInstruction(instruction: string, catalogue: CatalogueItem
   if (/\b(swiss|switzerland)[- ]?(based )?(shops?|sellers?|merchants?|stores?)\b|\bonly (in|from) switzerland\b/i.test(text)) {
     add({ field: FIELDS.merchantCountry, operator: 'in', value: ['CH'] }, 'The seller must be based in Switzerland.', 'Swiss shops');
   }
+  const chfOnly = text.match(/\b(?:chf|swiss francs?)\s+only\b|\bonly\s+(?:pay|purchases?|charges?|transactions?)(?:\s+\S+){0,2}\s+in\s+(?:chf|swiss francs?)\b/i);
+  if (chfOnly) {
+    add({ field: FIELDS.currency, operator: 'in', value: ['CHF'] }, 'Only purchases charged in Swiss Francs (CHF) are allowed.', chfOnly[0]);
+  }
 
   // --- Time windows ---------------------------------------------------------
   const hours = lower.match(/\bbetween\s+(\d{1,2})(?::00)?\s*(?:h|am|pm)?\s*(?:and|-|to)\s*(\d{1,2})(?::00)?\s*(?:h|am|pm)?/);
@@ -331,6 +336,7 @@ export function describeRule(rule: HardRule): string {
     case FIELDS.deliveryDays: return `Delivery time ${op[rule.operator]} ${v} days`;
     case FIELDS.merchantCategory: return `Shop category ${op[rule.operator]}: ${v}`;
     case FIELDS.merchantCountry: return `Shop country ${op[rule.operator]}: ${v}`;
+    case FIELDS.currency: return `Currency ${op[rule.operator]}: ${v}`;
     case FIELDS.quantity: return `Total quantity ${op[rule.operator]} ${v}`;
     case FIELDS.unrequested: return 'No unrequested add-ons';
     case FIELDS.fulfillment: return `Fulfilment ${op[rule.operator]}: ${v}`;
