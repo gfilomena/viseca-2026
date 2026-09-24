@@ -50,10 +50,24 @@
                   }
 
                   <dl class="summary">
-                    <div><dt>Product</dt><dd>{{ r.offer.item_name ?? 'Not found' }} <span class="faint">{{ r.offer.item_category }}{{ r.data.item ? '' : ' · not in catalogue' }}</span></dd></div>
-                    <div><dt>Quantity</dt><dd>{{ r.offer.quantity }}</dd></div>
-                    <div><dt>Price</dt><dd>{{ r.offer.unit_price | currency: 'CHF ' }} per unit</dd></div>
-                    <div><dt>Delivery</dt><dd>{{ r.offer.fulfillment_method === 'digital' ? 'Digital' : (r.offer.delivery_fee | currency: 'CHF ') }}</dd></div>
+                    @if (r.state === 'open') {
+                      <div><dt>Product</dt><dd>
+                        <input class="edit-text" [value]="r.offer.item_name ?? ''" (change)="updateOffer(r, { item_name: $any($event.target).value || null })" placeholder="Product name" />
+                        <input class="edit-text sm" [value]="r.offer.item_category ?? ''" (change)="updateOffer(r, { item_category: $any($event.target).value || null })" placeholder="Category" />
+                        <span class="faint">{{ r.data.item ? '' : 'not in catalogue' }}</span>
+                      </dd></div>
+                      <div><dt>Quantity</dt><dd><input class="edit-num" type="number" min="1" step="1" [value]="r.offer.quantity" (change)="updateOffer(r, { quantity: +$any($event.target).value || 1 })" /></dd></div>
+                      <div><dt>Price</dt><dd><input class="edit-num" type="number" min="0.01" step="0.01" [value]="r.offer.unit_price" (change)="updateOffer(r, { unit_price: +$any($event.target).value || null })" /> per unit</dd></div>
+                      <div><dt>Delivery</dt><dd>
+                        @if (r.offer.fulfillment_method === 'digital') { Digital }
+                        @else { <input class="edit-num" type="number" min="0" step="0.01" [value]="r.offer.delivery_fee" (change)="updateOffer(r, { delivery_fee: +$any($event.target).value || 0 })" /> }
+                      </dd></div>
+                    } @else {
+                      <div><dt>Product</dt><dd>{{ r.offer.item_name ?? 'Not found' }} <span class="faint">{{ r.offer.item_category }}{{ r.data.item ? '' : ' · not in catalogue' }}</span></dd></div>
+                      <div><dt>Quantity</dt><dd>{{ r.offer.quantity }}</dd></div>
+                      <div><dt>Price</dt><dd>{{ r.offer.unit_price | currency: 'CHF ' }} per unit</dd></div>
+                      <div><dt>Delivery</dt><dd>{{ r.offer.fulfillment_method === 'digital' ? 'Digital' : (r.offer.delivery_fee | currency: 'CHF ') }}</dd></div>
+                    }
                     <div><dt>Shop</dt><dd>{{ r.data.merchant?.merchant_name ?? 'Not found' }}
                       @if (r.data.merchant; as m) { <span class="faint">{{ m.merchant_city }}, {{ m.merchant_country }} · {{ m.familiar_purchases ? 'used ' + m.familiar_purchases + '×' : 'never used' }}</span> }</dd></div>
                     <div><dt>Total</dt><dd><strong>{{ total(r.offer) | currency: 'CHF ' }}</strong></dd></div>

@@ -160,6 +160,11 @@ export class ShopPage {
     this.chat.push({ kind: 'bot', text: 'Cancelled.' });
   }
 
+  /** Edits to the proposed offer stay on this chat message — not submitted until "Try to buy". */
+  protected updateOffer(msg: Extract<ChatMessage, { kind: 'review' }>, patch: Partial<PurchaseOffer>) {
+    this.chat.update(msg.id, { offer: { ...msg.offer, ...patch } } as Partial<ChatMessage>);
+  }
+
   protected async tryToBuy(msg: Extract<ChatMessage, { kind: 'review' }>) {
     const m = this.mandate();
     if (!m || this.busy()) return;

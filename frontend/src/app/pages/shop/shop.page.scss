@@ -52,6 +52,11 @@ blockquote { margin: 0; color: var(--ink-2); font-style: italic; }
 .summary div { display: grid; gap: 2px; }
 .summary dt { font-size: 12px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
 .summary dd { margin: 0; }
+.summary dd .edit-text, .summary dd .edit-num {
+  width: 100%; font: inherit; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
+}
+.summary dd .edit-text.sm { margin-top: 4px; font-size: 12px; color: var(--ink-2); }
+.summary dd .edit-num { width: 70px; }
 @media (max-width: 640px) { .summary { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 tr.clickable { cursor: pointer; }
 tr.clickable td { background: #fffaf0; }
