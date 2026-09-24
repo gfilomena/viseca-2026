@@ -25,6 +25,8 @@ export interface EngineInput {
   fx: Record<string, number>;
   catalogue: Map<string, CatalogueEntry>;
   intents: PolicyIntents;
+  /** Describes the delegation when there is no fixture authority (e.g. sandbox purchases). */
+  delegation?: string;
 }
 
 const HOUR = 3_600_000;
@@ -301,6 +303,7 @@ export function evaluate(input: EngineInput): EngineResult {
         notes.push(`account limits ${chf(acc.per_transaction_limit_chf ?? 0)} per payment, ${chf(acc.monthly_limit_chf)} per month (${chf(used)} used in ${month})`);
       }
     }
+    if (input.delegation) notes.push(`delegation: ${input.delegation}`);
     if (profile.authorities.length) {
       const t = Date.parse(a.timestamp);
       const covering = profile.authorities.filter((x) => Date.parse(x.valid_from) <= t && t <= Date.parse(x.valid_until));

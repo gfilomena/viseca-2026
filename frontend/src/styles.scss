@@ -40,7 +40,8 @@ p { margin: 0; }
 a { color: var(--accent); }
 code, .mono { font-family: var(--mono); font-size: 12px; }
 
-.page { max-width: 1280px; margin: 0 auto; padding: 24px 20px 64px; display: grid; gap: 20px; }
+.page { max-width: 1280px; margin: 0 auto; padding: 24px 20px 64px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.page > * { min-width: 0; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
 .page-head p { color: var(--ink-2); max-width: 70ch; }
 
@@ -66,6 +67,8 @@ code, .mono { font-family: var(--mono); font-size: 12px; }
 .btn.primary:hover:not(:disabled) { background: #1a43b8; }
 .btn.approve { background: var(--approve); color: #fff; border-color: var(--approve); }
 .btn.decline { background: var(--surface); color: var(--decline); border-color: #f1b5af; }
+.btn.approve:hover:not(:disabled) { background: #0f6630; border-color: #0f6630; }
+.btn.decline:hover:not(:disabled) { background: var(--decline-soft); border-color: var(--decline); }
 .btn.danger { color: var(--decline); }
 .btn.sm { padding: 5px 10px; font-size: 13px; border-radius: 8px; }
 

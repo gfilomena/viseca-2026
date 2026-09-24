@@ -95,6 +95,26 @@ approves it. If a late approval would breach a rolling limit, the inbox warns be
 
 Unknown fields are never ignored: they make the purchase uncertain.
 
+## Shop with your agent (home page)
+
+The home page is a chat with a **simulated shopping agent**, to try wallet control by hand:
+
+1. Pick the wallet policy that guards the agent and type a request, e.g.
+   *"Buy the 27-inch monitor at PixelHarbor for CHF 289"*.
+2. **Review**: the agent (`backend/src/agent/shopping-agent.ts`) structures it into a proposed purchase
+   — catalogue product, shop, price, quantity, delivery, return terms, device, and the shop's product
+   text — with its assumptions and questions (e.g. a shop name that imitates one you know). Every
+   field can be edited, including the untrusted shop text, to try a prompt injection.
+3. **Try to buy**: the agent submits it as a schema-valid authorization event and wallet control
+   answers `approve`, `decline` or `step_up`, with the checks and evidence. A step-up can be approved
+   or declined right in the chat.
+
+As the brief requires, wallet control is independent of the agent: the request and the offer can
+never change the policy, which is read as currently confirmed (tightening applies immediately,
+revocation stops the chat). Chat purchases use the real clock and are delegated by the policy itself
+rather than by the scenario fixture windows. Below the chat, **All transactions** lists every decision
+(chat, replays, simulator) with its outcome and reasons, filterable by approved / declined / asked.
+
 ## Customer control
 
 - **Draft → confirm**: the instruction is compiled into checks with explanations, the phrase each came
