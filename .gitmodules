@@ -1,0 +1,3 @@
+[submodule "backend-fdondi"]
+	path = backend-fdondi
+	url = git@github.com:Fdondi/viseca-hackaton-backend.git
