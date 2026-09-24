@@ -31,3 +31,6 @@ DEFINE ✅ (audit) · PLAN ✅ · BUILD ✅ · VERIFY ✅ (49 tests, build, brow
 
 ## Wallet policy: input only + active policies table — feat/policy-input-only
 BUILD ✅ · VERIFY ✅ (50 tests, build, browser 633px cards + 1280px table, draft for a customer without scenario) · SHIP ✅ (PR + merge on fork)
+
+## Wallet policy table scoped to selected customer — feat/policy-filter-by-customer
+BUILD ✅ · VERIFY ✅ (50 backend tests unaffected, build, browser: switched between 3 customers, correct rows/empty state each time) · SHIP ✅ (PR + merge on fork)
