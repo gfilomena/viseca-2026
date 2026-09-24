@@ -37,6 +37,8 @@ export async function routes(app: FastifyInstance) {
       LEFT JOIN customers c ON c.customer_id = a.customer_id
      ORDER BY s.scenario_id`).all());
 
+  app.get('/api/customers', async () => db.prepare('SELECT customer_id, persona_name, home_region FROM customers ORDER BY persona_name').all());
+
   app.get<{ Params: { id: string } }>('/api/scenarios/:id/attempts', async (req) => db.prepare(`
     SELECT p.*, m.merchant_name, m.merchant_category, m.merchant_country FROM purchase_attempts p
       JOIN merchants m ON m.merchant_id = p.merchant_id WHERE p.scenario_id = ? ORDER BY replay_order`).all(req.params.id));

@@ -22,3 +22,6 @@ BUILD ✅ · VERIFY ✅ (build; browser: no suggestions, summary, decision card)
 
 ## Shop page: choose the customer, policy derived — feat/shop-by-user
 BUILD ✅ · VERIFY ✅ (36 tests, build, browser) · SHIP ✅ (PR + merge on fork)
+
+## Shop: 'Shopping for' selector at the top with all users — feat/shop-for-selector
+BUILD ✅ · VERIFY ✅ (tsc, build, browser: 20 users, no-policy user, policy user) · SHIP ✅ (PR + merge on fork)

@@ -12,6 +12,7 @@ export class ApiService {
 
   health = () => this.get<Health>('/health');
   scenarios = () => this.get<Scenario[]>('/scenarios');
+  customers = () => this.get<{ customer_id: string; persona_name: string; home_region: string }[]>('/customers');
   attempts = (scenarioId: string) => this.get<Record<string, unknown>[]>(`/scenarios/${scenarioId}/attempts`);
   cardProfile = (cardId: string) => this.get<CardProfile>(`/cards/${cardId}/profile`);
 

@@ -99,8 +99,9 @@ Unknown fields are never ignored: they make the purchase uncertain.
 
 The home page is a chat with a **simulated shopping agent**, to try wallet control by hand:
 
-1. Pick **who you are shopping for** (the customer, e.g. *Alex Meier · card CA0001*); their most recently
-   confirmed wallet policy applies and is shown read-only. Then type a request, e.g.
+1. Pick **who you are shopping for** in the selector at the top of the page (all customers of the data
+   pack; those without an active policy are marked and cannot buy). Their most recently confirmed wallet
+   policy applies and is shown read-only. Then type a request, e.g.
    *"Buy the 27-inch monitor at PixelHarbor for CHF 289"*.
 2. **Review**: the agent (`backend/src/agent/shopping-agent.ts`) shows, read-only, what it understood
    — catalogue product, quantity, price, delivery, shop and total — plus any doubt (e.g. a shop name
