@@ -6,3 +6,8 @@
 .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .checks li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .checks li.bad { color: var(--decline); }
+
+.json-view {
+  margin: 0; padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+  font-size: 12px; line-height: 1.5; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+}

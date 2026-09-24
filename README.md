@@ -52,6 +52,26 @@ otherwise), and the platform's `pack_version` is compared with the local data pa
 204 the worker checks `/v1/scenario-runs/{id}` and marks finished hosted runs as completed.
 *Reset team data* calls `POST /v1/team/reset` (with a key) and clears local policies, runs and decisions.
 
+The *Customer data* page also has a **Hosted API** panel (needs a key) with the two read-only endpoints
+the platform offers beyond the decision flow: *Load* under **Reference data** calls `GET
+/v1/reference-data` — the closest thing the API has to a "products" endpoint (it actually returns the
+full `items`/`merchants`/`customers`/`accounts`/`cards`/`fx_rates`/`scenario_catalogue` tables, matching
+the offline data pack byte for byte, plus `history` and `runtime` metadata) — and *Load* under **Pending
+transactions** calls `GET /v1/authorizations`, listing every pending and final authorization the
+platform currently holds for the team (id, status, amount, merchant and the decision reason for each).
+`GET /v1/mandates/{id}` (re-reading a mandate straight from the platform) and `GET /v1/events?since=`
+(the team's event feed) are wired backend-side (`/api/live/mandates/:id`, `/api/live/events`) for the
+same reason, without a dedicated UI panel yet.
+
+All of this — mandate create/confirm, a hosted scenario run, the worker's long-poll delivery and
+decision submission, `/v1/authorizations`, and the reconciliation loop — was verified against the real
+platform, not just the documented shapes. One real bug only showed up there: `/v1/authorizations/{id}/decision`
+and `/resolve` require `evidence` as a list of **objects**, not plain strings (a bare string array 422s
+with `"Input should be a valid dictionary"`); fixed by wrapping each evidence sentence as `{ note: "…" }`
+(`remote/client.ts`'s `toRemoteEvidence`). The bootstrap's actual field names also differ slightly from
+the challenge guide's wording — the human/step-up window is `limits.step_up_timeout_seconds`, not
+anything containing "human" — `readBootstrap`'s pattern now matches both.
+
 The API has no login (single-customer prototype). It listens on `127.0.0.1` (`HOST` to change) and
 only accepts browser requests from the UI origin (`CORS_ORIGINS`, default `http://localhost:4200`);
 requests carrying any other `Origin` are refused, so another website cannot approve a step-up.

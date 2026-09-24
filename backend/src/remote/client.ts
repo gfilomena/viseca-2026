@@ -28,3 +28,11 @@ export async function api<T = any>(path: string, init: { method?: string; body?:
 
 /** Responses may wrap payloads in `data`; accept both shapes. */
 export const unwrap = <T = any>(x: any): T => (x && typeof x === 'object' && 'data' in x && x.data && !('type' in x) ? x.data : x);
+
+/**
+ * /v1/authorizations/{id}/decision and /resolve both take `evidence` as a list of *objects*,
+ * not plain strings (confirmed live: a bare string array 422s with "Input should be a valid
+ * dictionary" on every entry). Our own evidence is plain sentences everywhere else in the app
+ * (UI, tests); this is the one place that reshapes it for the wire.
+ */
+export const toRemoteEvidence = (items: string[]) => items.map((note) => ({ note }));

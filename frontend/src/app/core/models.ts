@@ -100,6 +100,7 @@ export interface PlatformState {
   checked_at: string | null; reachable: boolean | null; live: boolean; bootstrap_ok: boolean | null;
   human_window_seconds: number; human_window_source: 'default' | 'bootstrap';
   decision_deadline_seconds: number; decision_deadline_source: 'default' | 'bootstrap';
+  reset_enabled: boolean | null;
   local_pack_version: string | null; remote_pack_version: string | null; pack_match: boolean | null; error: string | null;
 }
 

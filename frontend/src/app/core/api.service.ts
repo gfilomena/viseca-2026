@@ -12,7 +12,7 @@ export class ApiService {
 
   health = () => this.get<Health>('/health');
   syncPlatform = () => this.send<PlatformState>('POST', '/platform/sync');
-  resetTeam = () => this.send<{ platform: string; local: Record<string, number> }>('POST', '/team/reset');
+  resetTeam = () => this.send<{ platform: 'reset' | 'skipped' | 'failed'; platform_error: string | null; local: Record<string, number> }>('POST', '/team/reset');
   scenarios = () => this.get<Scenario[]>('/scenarios');
   customers = () => this.get<{ customer_id: string; persona_name: string; home_region: string }[]>('/customers');
   attempts = (scenarioId: string) => this.get<Record<string, unknown>[]>(`/scenarios/${scenarioId}/attempts`);
@@ -35,6 +35,12 @@ export class ApiService {
   buy = (mandate_id: string, offer: PurchaseOffer) => this.send<DecisionRow>('POST', '/shop/buy', { mandate_id, offer });
 
   resolve = (id: string, decision: 'approve' | 'decline', note?: string) => this.send<DecisionRow>('POST', `/decisions/${encodeURIComponent(id)}/resolve`, { decision, note });
+
+  // Hosted-API pass-throughs (live mode only: needs TEAM_API_KEY on the backend).
+  liveReferenceData = () => this.get<unknown>('/live/reference-data');
+  livePendingTransactions = () => this.get<Record<string, unknown>[]>('/live/authorizations');
+  liveEvents = (since: number | string = 0) => this.get<{ events: unknown[]; next_cursor: unknown }>(`/live/events?since=${encodeURIComponent(String(since))}`);
+  liveMandate = (remoteMandateId: string) => this.get<unknown>(`/live/mandates/${encodeURIComponent(remoteMandateId)}`);
 }
 
 export function errorText(e: unknown): string {
