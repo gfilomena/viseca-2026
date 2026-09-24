@@ -167,3 +167,19 @@ test('a free-text product still needs a name and a price to try to buy', async (
   assert.equal(r.offer.unit_price_chf, null);
   await assert.rejects(async () => tryToBuy(m.id, r.offer), /price must be above zero/);
 });
+
+test('a bare "N <product>" quantity is read, not just "2x"/"2 units" phrasing', async () => {
+  const m = await policyFor('SCEN0000');
+  const r = interpretForMandate(m.id, 'buy 2 drones from Alpine Basket for 300chf each');
+  assert.equal(r.offer.item_name, 'Drones');
+  assert.equal(r.offer.quantity, 2);
+  assert.equal(r.offer.item_category, 'electronics'); // "drone" is in the category vocabulary
+  assert.equal(r.offer.unit_price_chf, 300);
+});
+
+test('category hints cover every category in the data pack, not just the original handful', async () => {
+  const m = await policyFor('SCEN0000');
+  assert.equal(interpretForMandate(m.id, 'Buy dinner at Alpine Basket for CHF 40').offer.item_category, 'dining');
+  assert.equal(interpretForMandate(m.id, 'Book a hotel room at Alpine Basket for CHF 150').offer.item_category, 'hotel');
+  assert.equal(interpretForMandate(m.id, 'Get a gym membership at Alpine Basket for CHF 60').offer.item_category, 'membership');
+});

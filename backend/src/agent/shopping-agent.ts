@@ -80,17 +80,22 @@ const SHOP_FOR: Record<string, string | undefined> = {
  * declined, never silently approved outside the category.
  */
 const PRODUCT_CATEGORY_HINTS: [RegExp, string][] = [
-  [/\b(bicycle|bike|helmet|running shoes?|trainers?|hiking boots?|tent|ski(s|ing)?|snowboard|racket|yoga mat|scooter|skateboard)\b/i, 'sporting_goods'],
-  [/\b(phone|smartphone|laptop|computer|monitor|tablet|headphones?|earbuds?|charger|camera|tv|television|console|keyboard|mouse|printer|router)\b/i, 'electronics'],
-  [/\b(shirt|t-?shirt|jacket|coat|jeans|trousers|dress|shoes?|boots|sweater|hoodie|scarf|gloves|socks)\b/i, 'clothing'],
-  [/\b(bread|milk|eggs?|fruit|vegetables?|banana|apple|rice|pasta|cheese|coffee|tea|groceries?|snacks?)\b/i, 'groceries'],
-  [/\b(book|novel|textbook|magazine)\b/i, 'books'],
-  [/\b(sofa|couch|chair|table|lamp|rug|curtains?|cushion|shelf|shelving|mattress)\b/i, 'household'],
-  [/\b(paint|drill|hammer|screwdriver|toolkit|nails?|screws?|ladder)\b/i, 'home_improvement'],
-  [/\b(perfume|makeup|lipstick|skincare|shampoo|cosmetics?)\b/i, 'cosmetics'],
+  [/\b(bicycle|bike|helmet|running shoes?|trainers?|hiking boots?|tent|ski(s|ing)?|snowboard|racket|yoga mat|scooter|skateboard|dumbbells?|treadmill|football|basketball)\b/i, 'sporting_goods'],
+  [/\b(phones?|smartphones?|laptops?|computers?|monitors?|tablets?|headphones?|earbuds?|chargers?|cameras?|tv|television|consoles?|keyboards?|mice|mouse|printers?|routers?|drones?|speakers?|smartwatch(es)?|e-?readers?|fitness trackers?|games?|gaming|hard drives?|ssds?|webcams?|projectors?)\b/i, 'electronics'],
+  [/\b(shirt|t-?shirt|jacket|coat|jeans|trousers|dress|shoes?|boots|sweater|hoodie|scarf|gloves|socks|hat|cap|belt|handbag|backpack)\b/i, 'clothing'],
+  [/\b(bread|milk|eggs?|fruit|vegetables?|banana|apple|rice|pasta|cheese|coffee|tea|groceries?|snacks?|meat|fish|yogh?urt|cereal)\b/i, 'groceries'],
+  [/\b(book|novel|textbook|magazine|comic)\b/i, 'books'],
+  [/\b(sofa|couch|chair|table|lamp|rug|curtains?|cushion|shelf|shelving|mattress|blender|kettle|toaster|vacuum|air fryer|grill|cookware|pan|pot)\b/i, 'household'],
+  [/\b(paint|drill|hammer|screwdriver|toolkit|nails?|screws?|ladder|saw|wrench)\b/i, 'home_improvement'],
+  [/\b(perfume|makeup|lipstick|skincare|shampoo|cosmetics?|moisturi[sz]er|sunscreen)\b/i, 'cosmetics'],
   [/\bgift ?(card|voucher)s?\b/i, 'gift_card'],
   [/\b(train|rail|bus|tram)\s*(ticket|pass)?\b/i, 'transport'],
   [/\b(fuel|petrol|diesel|charging session)\b/i, 'fuel'],
+  [/\b(restaurant|dinner|lunch|breakfast|dining|meal)\b/i, 'dining'],
+  [/\b(food delivery|takeaway|takeout|delivery order)\b/i, 'food_delivery'],
+  [/\b(hotel|room|stay|night'?s? stay|resort|booking\.?com)\b/i, 'hotel'],
+  [/\b(membership|gym pass|club fee|annual fee)\b/i, 'membership'],
+  [/\b(subscriptions?|monthly plans?|streaming plans?)\b/i, 'subscriptions'],
 ];
 
 export const currencyFor = (country: string): Currency =>
@@ -152,8 +157,9 @@ export function extractProductName(text: string, merchantName: string | null): s
   for (const re of AMOUNT_RE) s = s.replace(re, ' ');
   s = s.replace(/\s{2,}/g, ' ').trim();
   s = s.replace(/^(please\s+)?(buy|order|get|purchase|grab|pick up)\s+(me\s+)?/i, '');
-  s = s.replace(/^(a|an|the|some|one|two|three|four|five)\s+/i, '');
-  s = s.replace(/\b(from|at)\s*$/i, '').replace(/[.,!?]+$/, '').replace(/\s{2,}/g, ' ').trim();
+  s = s.replace(/^(a|an|the|some|one|two|three|four|five|\d{1,2})\s*(?:x|pcs|pieces|units|×)?\s+/i, '');
+  s = s.replace(/\s+(each|per unit|per item|per piece|a unit|a piece|apiece)\.?$/i, '');
+  s = s.replace(/\b(from|at|for|per)\s*$/i, '').replace(/[.,!?]+$/, '').replace(/\s{2,}/g, ' ').trim();
   if (s.length < 2) return null;
   return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -170,7 +176,15 @@ export function interpretRequest(db: DatabaseSync, cardId: string, text: string)
   const candidates = scoreItems(stripMerchantName(text, namedMerchant?.merchant_name ?? null), opts.items).slice(0, 5);
   const catalogueItem = candidates[0] ?? null;
 
-  const qty = lower.match(/\b(\d{1,2})\s*(?:x|pcs|pieces|units|×)\b/) ?? lower.match(/\b(two|three|four|five)\b/);
+  // Strip currency amounts first so a bare quantity number ("2 drones") isn't confused with
+  // a price ("300chf") and a quantity right before a unit word ("2x", "2 pcs") is still caught.
+  const lowerWithoutAmount = AMOUNT_RE.reduce((s, re) => s.replace(re, ' '), lower);
+  // A bare number ("2 drones") is only read as a quantity right after the purchase verb, never
+  // mid-sentence — otherwise "shoes size 43 at ..." would misread the shoe size as a quantity.
+  const afterVerb = lowerWithoutAmount.replace(/^(please\s+)?(buy|order|get|purchase|grab|pick up)\s+(me\s+)?/i, '');
+  const qty = lowerWithoutAmount.match(/\b(\d{1,2})\s*(?:x|pcs|pieces|units|×)\b/)
+    ?? afterVerb.match(/^(\d{1,2})\s*(?:x|pcs|pieces|units|×)?\s+/)
+    ?? lowerWithoutAmount.match(/\b(two|three|four|five)\b/);
   const qtyWords: Record<string, number> = { two: 2, three: 3, four: 4, five: 5 };
   const quantity = qty ? (Number(qty[1]) || qtyWords[qty[1]] || 1) : 1;
 
@@ -187,7 +201,7 @@ export function interpretRequest(db: DatabaseSync, cardId: string, text: string)
     itemName = catalogueItem.item_name;
     itemCategory = catalogueItem.item_category;
     itemId = catalogueItem.item_id;
-    unit = budget ? (exact ? budget / quantity : Math.min(catalogueItem.typical_chf, budget / quantity)) : catalogueItem.typical_chf;
+    unit = budget ? (exact ? budget : Math.min(catalogueItem.typical_chf, budget / quantity)) : catalogueItem.typical_chf;
     notes.push(`Product: “${itemName}” (${itemCategory}), the closest catalogue match.`);
     if (candidates.length > 1 && (candidates[1].score ?? 0) >= (candidates[0].score ?? 0) - 0.05) {
       questions.push(`“${candidates[0].item_name}” and “${candidates[1].item_name}” match equally well. Check the product.`);
@@ -199,7 +213,7 @@ export function interpretRequest(db: DatabaseSync, cardId: string, text: string)
     itemName = extractProductName(text, namedMerchant?.merchant_name ?? null);
     itemId = null;
     itemCategory = itemName ? guessCategory(text) : null;
-    unit = budget ? budget / quantity : null;
+    unit = budget ? (exact ? budget : budget / quantity) : null;
     if (itemName) {
       notes.push(`Product: “${itemName}”, as you described it — not in this shop's product catalogue, so category (${itemCategory}) and price are our best guess.`);
       questions.push(`“${itemName}” is not a known product. Check the price and category before buying.`);
