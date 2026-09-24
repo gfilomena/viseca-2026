@@ -2,11 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { getDb, json } from '../db/db.ts';
 import { liveEnabled } from '../config.ts';
 import type { HardRule, UncertaintyPolicy } from '../domain/types.ts';
-import { compileInstruction, describeRule, type RuleExplanation } from '../policy/compiler.ts';
+import { compileInstruction, describeRule, type PolicyDraft, type RuleExplanation } from '../policy/compiler.ts';
 import { api } from '../remote/client.ts';
 import { catalogueItems } from './catalog.ts';
 import { parsePreferences } from '../engine/preferences.ts';
 import { llmConfig, reviewDraft } from '../policy/llm.ts';
+import { openaiConfig, compileInstructionOpenAI } from '../policy/openai-compiler.ts';
 import { publish } from './bus.ts';
 
 export interface Mandate {
@@ -81,16 +82,16 @@ export function cardForCustomer(customerId: string): string | null {
   return busiest?.card_id ?? null;
 }
 
-/** Step 1: interpret the customer's words into a reviewable draft (nothing is enforced yet). */
-export function createDraft(instruction: string, scenarioId: string | null = null, customerId: string | null = null): Mandate {
-  if (!instruction?.trim()) throw new PolicyError('Instruction is required');
-  if (customerId && !getDb().prepare('SELECT 1 FROM customers WHERE customer_id = ?').get(customerId)) throw new PolicyError(`Unknown customer ${customerId}`, 404);
-  const d = compileInstruction(instruction, catalogueItems());
-  const card = customerId
+function resolveCard(scenarioId: string | null, customerId: string | null): string | null {
+  return customerId
     ? cardForCustomer(customerId)
     : scenarioId
       ? (getDb().prepare('SELECT a.card_id FROM purchase_attempts p JOIN scenario_authorities a ON a.authority_id = p.authority_id WHERE p.scenario_id = ? LIMIT 1').get(scenarioId) as { card_id: string } | undefined)?.card_id ?? null
       : null;
+}
+
+/** Appends the standing, always-true context every draft carries, regardless of who interpreted it. */
+function applyProfileGuidance(d: PolicyDraft, card: string | null): void {
   const prefs = card
     ? (getDb().prepare('SELECT cu.shopping_preferences AS p FROM cards c JOIN accounts a ON a.account_id = c.account_id JOIN customers cu ON cu.customer_id = a.customer_id WHERE c.card_id = ?').get(card) as { p: string } | undefined)?.p
     : undefined;
@@ -98,25 +99,61 @@ export function createDraft(instruction: string, scenarioId: string | null = nul
     d.guidance.push(`Your profile preferences (“${prefs}”) are soft signals: a basket that goes against them is treated as uncertain, never declined on that basis alone.`);
   }
   d.guidance.push('Card, account and delegation limits from your bank (card status and expiry, online/abroad switches, per-payment and monthly account limits, delegation window) always apply.');
-  const m: Mandate = {
+}
+
+function buildMandate(scenarioId: string | null, card: string | null, d: PolicyDraft, auditDetail: string): Mandate {
+  return {
     id: `LM-${randomUUID().slice(0, 8)}`, remote_draft_id: null, remote_mandate_id: null, status: 'draft',
     scenario_id: scenarioId, card_id: card, instruction: d.instruction, hard_rules: d.hard_rules,
     uncertainty_policy: d.uncertainty_policy, guidance: d.guidance, open_questions: d.open_questions,
-    explanations: d.explanations, audit: [{ at: now(), action: 'drafted', detail: `${d.hard_rules.length} checks interpreted from the instruction` }],
+    explanations: d.explanations, audit: [{ at: now(), action: 'drafted', detail: auditDetail }],
     created_at: now(), confirmed_at: null, revoked_at: null,
   };
+}
+
+function requireValidInstruction(instruction: string, customerId: string | null): void {
+  if (!instruction?.trim()) throw new PolicyError('Instruction is required');
+  if (customerId && !getDb().prepare('SELECT 1 FROM customers WHERE customer_id = ?').get(customerId)) throw new PolicyError(`Unknown customer ${customerId}`, 404);
+}
+
+/** Step 1 (built-in path): interpret the customer's words with the deterministic parser. */
+export function createDraft(instruction: string, scenarioId: string | null = null, customerId: string | null = null): Mandate {
+  requireValidInstruction(instruction, customerId);
+  const card = resolveCard(scenarioId, customerId);
+  const d = compileInstruction(instruction, catalogueItems());
+  applyProfileGuidance(d, card);
+  const m = buildMandate(scenarioId, card, d, `${d.hard_rules.length} checks interpreted from the instruction`);
   save(m);
   return m;
 }
 
 /**
- * Draft + optional language-model review (POLICY_LLM=on). The review can only add
- * clearly-marked rules and questions; on any failure the built-in draft is kept.
+ * Step 1 (real API path): OpenAI is the primary interpreter when OPENAI_API_KEY is set — it
+ * produces the whole draft, not just suggestions on top of one. On any failure (no key, timeout,
+ * refusal, invalid output) this falls back to the deterministic parser, so policy creation never
+ * blocks on a flaky or unconfigured external API. The optional Claude review (POLICY_LLM=on) still
+ * runs afterward either way, adding clearly-marked suggestions on top of whichever draft was used.
  */
 export async function createReviewedDraft(instruction: string, scenarioId: string | null = null, customerId: string | null = null): Promise<Mandate> {
-  const m = createDraft(instruction, scenarioId, customerId);
-  if (!llmConfig.enabled) return m;
+  requireValidInstruction(instruction, customerId);
+  const card = resolveCard(scenarioId, customerId);
   const merchantCategories = (getDb().prepare('SELECT DISTINCT merchant_category AS c FROM merchants ORDER BY c').all() as { c: string }[]).map((r) => r.c);
+
+  let m: Mandate;
+  if (openaiConfig.enabled) {
+    const outcome = await compileInstructionOpenAI(instruction, { catalogue: catalogueItems(), merchantCategories });
+    if (outcome.draft) {
+      applyProfileGuidance(outcome.draft, card);
+      m = buildMandate(scenarioId, card, outcome.draft, outcome.note);
+    } else {
+      m = createDraft(instruction, scenarioId, customerId);
+      m.audit.push({ at: now(), action: 'openai fallback', detail: outcome.note });
+    }
+  } else {
+    m = createDraft(instruction, scenarioId, customerId);
+  }
+
+  if (!llmConfig.enabled) { save(m); return m; }
   const { draft, note } = await reviewDraft({
     instruction: m.instruction, hard_rules: m.hard_rules, uncertainty_policy: m.uncertainty_policy, guidance: m.guidance,
     open_questions: m.open_questions, explanations: m.explanations,

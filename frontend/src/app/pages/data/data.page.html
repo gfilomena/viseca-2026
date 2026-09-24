@@ -35,6 +35,7 @@
           <li><span class="badge">i</span> <strong>Human window</strong> <span class="muted">{{ p.human_window_seconds }} s ({{ p.human_window_source }}) · decision deadline {{ p.decision_deadline_seconds }} s ({{ p.decision_deadline_source }})</span></li>
           <li><span class="badge" [class.pass]="p.reset_enabled" [class.fail]="p.reset_enabled === false">{{ p.reset_enabled ? '✓' : p.reset_enabled === false ? '✕' : '–' }}</span> <strong>Platform reset</strong> <span class="muted">{{ p.reset_enabled === false ? 'disabled right now (judging?) — Reset team data still clears local state' : p.reset_enabled ? 'available' : 'unknown until checked' }}</span></li>
           <li><span class="badge">i</span> <strong>Policy language model</strong> <span class="muted">{{ h.policy_llm?.enabled ? 'on · ' + h.policy_llm?.model + ' (drafts only, never decisions)' : 'off (built-in parser only)' }}</span></li>
+          <li><span class="badge" [class.active]="h.openai_interpreter?.enabled">i</span> <strong>OpenAI interpreter</strong> <span class="muted">{{ h.openai_interpreter?.enabled ? 'on · ' + h.openai_interpreter?.model + ' (interprets wallet policy + shop requests; never decides a purchase)' : 'off (built-in parser used for both)' }}</span></li>
         </ul>
         <p class="faint">Checked {{ p.checked_at | date: 'medium' }}.</p>
       }
