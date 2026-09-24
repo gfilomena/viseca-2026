@@ -8,8 +8,8 @@
   },
   "scripts": {
     "seed": "node src/db/seed.ts",
-    "dev": "node --watch --disable-warning=ExperimentalWarning src/server.ts",
-    "start": "node --disable-warning=ExperimentalWarning src/server.ts",
+    "dev": "node --watch --env-file-if-exists=../.env --disable-warning=ExperimentalWarning src/server.ts",
+    "start": "node --env-file-if-exists=../.env --disable-warning=ExperimentalWarning src/server.ts",
     "test": "node --disable-warning=ExperimentalWarning --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },
