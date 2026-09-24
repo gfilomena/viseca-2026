@@ -1,4 +1,4 @@
-<header class="shell">
+<header class="topbar">
   <div class="brand">
     <span class="logo" aria-hidden="true">◈</span>
     <div>
@@ -6,7 +6,7 @@
       <span class="faint">Wallet control for AI shopping agents</span>
     </div>
   </div>
-  <nav>
+  <nav class="desktop-nav">
     <a routerLink="/" routerLinkActive="on" [routerLinkActiveOptions]="{ exact: true }">Shop</a>
     <a routerLink="/policy" routerLinkActive="on">Wallet policy</a>
     <a routerLink="/activity" routerLinkActive="on">
@@ -20,7 +20,29 @@
     <span class="faint">{{ live.connected() ? 'Engine connected' : 'Engine offline' }}</span>
   </div>
 </header>
+
 <main>
   <router-outlet />
 </main>
+
+<nav class="tabbar" aria-label="Primary">
+  <a class="tab" routerLink="/" routerLinkActive="on" [routerLinkActiveOptions]="{ exact: true }">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+    <span>Shop</span>
+  </a>
+  <a class="tab" routerLink="/policy" routerLinkActive="on">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3Z"/></svg>
+    <span>Policy</span>
+  </a>
+  <a class="tab" routerLink="/activity" routerLinkActive="on">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l3 3v15H6V3Z"/><path d="M9 9h6M9 13h6M9 17h3"/></svg>
+    <span>Purchases</span>
+    @if (pending() > 0) { <span class="count" [attr.aria-label]="pending() + ' waiting for you'">{{ pending() }}</span> }
+  </a>
+  <a class="tab" routerLink="/data" routerLinkActive="on">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+    <span>Data</span>
+  </a>
+</nav>
+
 <app-step-up-modal />

@@ -51,13 +51,13 @@
   }
 
   @if (currentRun(); as r) {
-    <div class="stats">
-      <div class="stat"><span class="faint">Purchases</span><strong>{{ stats().total }}</strong></div>
-      <div class="stat"><span class="faint">Paid</span><strong class="ok">{{ stats().approved }}</strong><span class="faint">{{ stats().auto }} with no friction</span></div>
-      <div class="stat"><span class="faint">Stopped</span><strong class="bad">{{ stats().declined }}</strong></div>
-      <div class="stat"><span class="faint">Waiting for you</span><strong class="warn">{{ stats().pending }}</strong></div>
-      <div class="stat"><span class="faint">Spent</span><strong>{{ stats().spend | currency: 'CHF ' }}</strong></div>
-      <div class="stat"><span class="faint">Avg decision time</span><strong>{{ stats().lat | number: '1.1-2' }} ms</strong></div>
+    <div class="stat-scroll">
+      <div class="stat-tile"><span class="faint">Purchases</span><strong>{{ stats().total }}</strong></div>
+      <div class="stat-tile"><span class="faint">Paid</span><strong class="ok">{{ stats().approved }}</strong><span class="faint">{{ stats().auto }} with no friction</span></div>
+      <div class="stat-tile"><span class="faint">Stopped</span><strong class="bad">{{ stats().declined }}</strong></div>
+      <div class="stat-tile"><span class="faint">Waiting for you</span><strong class="warn">{{ stats().pending }}</strong></div>
+      <div class="stat-tile"><span class="faint">Spent</span><strong>{{ stats().spend | currency: 'CHF ' }}</strong></div>
+      <div class="stat-tile"><span class="faint">Avg decision time</span><strong>{{ stats().lat | number: '1.1-2' }} ms</strong></div>
     </div>
     @if (r.error) { <div class="callout warn">{{ r.error }}</div> }
   }
@@ -78,15 +78,15 @@
           <tbody>
             @for (row of rows(); track row.authorization_id) {
               <tr class="clickable" [class.selected]="selected()?.authorization_id === row.authorization_id" (click)="open(row); row.status === 'pending' && stepUps.open(row.authorization_id)">
-                <td class="faint">{{ row.replay_order }}</td>
-                <td class="nowrap">{{ row.sim_timestamp | date: 'MMM d, HH:mm' : 'UTC' }}</td>
-                <td>{{ row.merchant_name }}</td>
-                <td class="basket">{{ (row.items ?? []).join(', ') }}</td>
-                <td class="num">{{ row.billing_amount_chf | number: '1.2-2' }}</td>
-                <td><span class="badge" [class]="row.engine_decision">{{ decisionLabel[row.engine_decision] }}</span></td>
-                <td><span class="badge" [class]="row.status">{{ statusLabel[row.status] }}</span>
+                <td class="faint" data-label="#">{{ row.replay_order }}</td>
+                <td class="nowrap" data-label="When">{{ row.sim_timestamp | date: 'MMM d, HH:mm' : 'UTC' }}</td>
+                <td data-label="Shop">{{ row.merchant_name }}</td>
+                <td class="basket" data-label="Basket">{{ (row.items ?? []).join(', ') }}</td>
+                <td class="num" data-label="CHF">{{ row.billing_amount_chf | number: '1.2-2' }}</td>
+                <td data-label="Engine"><span class="badge" [class]="row.engine_decision">{{ decisionLabel[row.engine_decision] }}</span></td>
+                <td data-label="Outcome"><span class="badge" [class]="row.status">{{ statusLabel[row.status] }}</span>
                   @if (row.resolved_by === 'customer') { <span class="faint"> by you</span> }</td>
-                <td class="why">{{ summary(row) }}</td>
+                <td class="why" data-label="Why">{{ summary(row) }}</td>
               </tr>
             } @empty {
               <tr><td colspan="8" class="empty">No purchases yet. Start a run from the Wallet policy page.</td></tr>

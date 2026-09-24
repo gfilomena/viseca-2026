@@ -40,3 +40,8 @@ DEFINE ✅ · BUILD ✅ · VERIFY ✅ (54 backend tests incl. 4 new, frontend bu
 
 ## Wire the remaining hosted-API endpoints; verify the full lifecycle live, fix a real 422 — feat/live-api-full
 DEFINE ✅ · BUILD ✅ · VERIFY ✅ (61 backend tests, frontend build, full lifecycle run live against saw26api: bootstrap, mandate create/confirm, scenario-run, worker delivery+decision, /v1/authorizations, reconciliation) · REVIEW ⬜ · SHIP ⬜
+
+## iOS-inspired mobile-first restyle (frontend/) — main
+DEFINE ✅ (user brief, scoped to frontend/) · PLAN ✅ (mock approved) · BUILD ✅ · VERIFY ✅ (dev server, mobile+desktop, light+dark, ng build) · REVIEW ⬜ · SHIP ⬜
+gates: plan OK (mock approved) · ship OK pending
+files: styles.scss, index.html, app shell, step-up-modal, shop/policy/activity/data pages (templates+scss only, no .ts changed)

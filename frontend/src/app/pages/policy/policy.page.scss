@@ -1,6 +1,6 @@
 .step { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 12px; margin-right: 6px; }
 .rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: r; }
-.rule { display: grid; grid-template-columns: 1fr 190px; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+.rule { display: grid; grid-template-columns: 1fr 190px; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-2); }
 .rule-main { display: grid; gap: 6px; }
 .rule-main code { color: var(--ink-2); word-break: break-word; }
 .rule-edit { display: grid; gap: 6px; align-content: start; }
@@ -9,10 +9,10 @@
 .guidance, .audit { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; color: var(--ink-2); }
 .audit { list-style: none; padding: 0; }
 
-blockquote { margin: 0; color: var(--ink-2); font-style: italic; max-width: 80ch; }
+blockquote { margin: 0; color: var(--ink-2); font-style: italic; max-width: 80ch; border-left: 3px solid var(--accent); padding-left: 10px; }
 .labels { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
-.labels li { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; font-size: 13px; }
-.tighten { background: var(--surface-2); border-radius: 10px; padding: 12px; }
+.labels li { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 4px 9px; font-size: 13px; }
+.tighten { background: var(--surface-2); border-radius: var(--radius-md); padding: 14px; }
 .tighten-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: end; }
 .check { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 .check input { width: auto; }
@@ -43,7 +43,7 @@ blockquote { margin: 0; color: var(--ink-2); font-style: italic; max-width: 80ch
 @media (max-width: 767px) {
   .policies thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .policies, .policies tbody, .policies tr, .policies td { display: block; width: 100%; }
-  .policies tr { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
+  .policies tr { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 10px 14px; margin-bottom: 10px; background: var(--surface); box-shadow: var(--shadow-1); }
   .policies tr.open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0; }
   .policies tr.details { border-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
   .policies td { border: 0; padding: 6px 0; }
