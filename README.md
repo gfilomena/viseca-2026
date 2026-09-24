@@ -1,16 +1,16 @@
-# Swiss {ai} Weeks 2026: Viseca Challenge
+# Leash — wallet control for AI shopping agents
 
-This repository contains the materials for Viseca's Swiss {ai} Weeks 2026 hackathon challenge.
+Our solution to Viseca's Swiss {ai} Weeks 2026 challenge *Agent on a Leash*.
+The original challenge material is in [`resource/`](resource/):
+[challenge brief](resource/challenge.md), [technical details](resource/technical_details.md) and the
+[synthetic data pack](resource/data/).
 
-## Contents
-
-- [challenge.md](challenge.md): Full public challenge brief and judging criteria.
-- [technical_details.md](technical_details.md): Sandbox API and data contract.
-- [data/](data/): Synthetic offline data pack, including scenarios, purchase attempts, reference data, and JSON schemas.
-
----
-
-# Prototype: Leash — wallet control for AI shopping agents
+```text
+backend/    decision engine + API (Node 24, TypeScript, Fastify, SQLite)
+frontend/   customer UI (Angular 22)
+resource/   original Viseca material: challenge.md, technical_details.md, data/
+tasks/      workflow trace
+```
 
 Two independently deployable parts, as recommended in the brief:
 
@@ -19,7 +19,7 @@ Two independently deployable parts, as recommended in the brief:
 | `backend/` | Node 24 (native TypeScript), Fastify, built-in `node:sqlite` | Policy compiler, decision engine (approve / decline / step_up), run state, hosted-API worker |
 | `frontend/` | Angular 22 (standalone, signals, zoneless) | Customer UI: describe → review → confirm, tighten, revoke; live purchase feed; step-up inbox |
 
-The database (`backend/var/leash.db`) is built from every CSV in [`data/`](data/) on first start
+The database (`backend/var/leash.db`) is built from every CSV in [`resource/data/`](resource/data/) on first start
 (`npm run seed` to rebuild). Reference tables mirror the CSVs; `mandates`, `runs` and `decisions`
 hold application state.
 

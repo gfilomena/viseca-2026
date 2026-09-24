@@ -1,4 +1,4 @@
--- Reference data (loaded from ../data/*.csv by seed.ts)
+-- Reference data (loaded from resource/data/*.csv by seed.ts)
 
 CREATE TABLE IF NOT EXISTS customers (
   customer_id TEXT PRIMARY KEY,

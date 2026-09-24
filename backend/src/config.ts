@@ -6,7 +6,7 @@ export const ROOT_DIR = path.resolve(here, '..', '..');
 
 export const config = {
   port: Number(process.env.PORT ?? 3000),
-  dataDir: process.env.DATA_DIR ?? path.join(ROOT_DIR, 'data'),
+  dataDir: process.env.DATA_DIR ?? path.join(ROOT_DIR, 'resource', 'data'),
   dbPath: process.env.DB_PATH ?? path.join(ROOT_DIR, 'backend', 'var', 'leash.db'),
   leashBaseUrl: process.env.LEASH_BASE_URL ?? 'https://saw26api.ashyground-364e1d07.switzerlandnorth.azurecontainerapps.io',
   teamApiKey: process.env.TEAM_API_KEY ?? '',

@@ -7,3 +7,6 @@ DEFINE ⏭️ (user list a/b/c) · PLAN ⏭️ (small scope) · BUILD ✅ · VER
 
 ## Code-review fixes (live run race, live reconciliation, unconfirmed spend, CORS) — feat/wallet-control
 REVIEW ✅ (/code-review: 4 findings) · BUILD ✅ · VERIFY ✅ (28 tests, UI checked) · SHIP ✅ (f4a44e7 → gfilomena/viseca-2026)
+
+## Move Viseca originals to resource/, app at root — chore/resource-layout
+BUILD ✅ · VERIFY ✅ (28 tests, re-seed from resource/data verified in UI) · SHIP ✅ (PR + merge on fork)

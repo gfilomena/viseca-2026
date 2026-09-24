@@ -9,6 +9,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'leash-test-'));
 process.env.DB_PATH = path.join(dir, 'test.db');
 process.env.TEAM_API_KEY = '';
 
+const { config } = await import('../config.ts');
 const { seed } = await import('../db/seed.ts');
 const { getDb } = await import('../db/db.ts');
 const { createDraft, confirmDraft, revoke } = await import('../services/mandates.ts');
@@ -124,6 +125,6 @@ test('offline events conform to the official authorization event schema', async 
   for (const d of Object.values(byId) as any[]) {
     assert.ok(validateEvent(d.event), `${d.source_authorization_id}: ${JSON.stringify(validateEvent.errors)}`);
   }
-  const example = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, '../../../data/scenario_fixtures/example_authorization_request.json'), 'utf8'));
+  const example = JSON.parse(fs.readFileSync(path.join(config.dataDir, 'scenario_fixtures', 'example_authorization_request.json'), 'utf8'));
   assert.ok(validateEvent(example));
 });
