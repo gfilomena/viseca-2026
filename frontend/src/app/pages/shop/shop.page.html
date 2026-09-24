@@ -1,8 +1,8 @@
 <section class="page">
   <div class="page-head">
     <div class="stack-sm">
-      <h1>Shop with your agent</h1>
-      <p>Tell the shopping agent what to buy. You review what it plans to do, then it tries to pay. Your wallet policy decides on its own: nothing you or the shop write here can change it.</p>
+      <h1>Shop</h1>
+      <p>Your agent buys; your wallet policy decides.</p>
     </div>
   </div>
 
@@ -16,15 +16,7 @@
 
       <div class="messages" #scroller aria-live="polite">
         @if (!chat.messages().length) {
-          <div class="welcome">
-            <p><strong>Hi! What should I buy for you?</strong></p>
-            <p class="muted">Describe it like you would to a person: the product, the shop, the price.</p>
-            <div class="suggestions">
-              @for (s of suggestions; track s) {
-                <button type="button" class="chip-btn" (click)="useSuggestion(s)" [disabled]="!mandate()">{{ s }}</button>
-              }
-            </div>
-          </div>
+          <p class="welcome muted">What should I buy?</p>
         }
 
         @for (msg of chat.messages(); track msg.id) {
@@ -60,13 +52,8 @@
                     <div><dt>Total</dt><dd><strong>{{ total(r.offer) | currency: 'CHF ' }}</strong></dd></div>
                   </dl>
 
-                  <ul class="notes">
-                    @for (n of r.data.notes; track $index) { <li>{{ n }}</li> }
-                  </ul>
-
                   @if (r.state === 'open') {
                     <div class="row">
-                      <span class="muted">Your wallet policy decides if it can be paid.</span>
                       <span class="spacer"></span>
                       <button class="btn" (click)="cancel(msg)">Cancel</button>
                       <button class="btn primary" (click)="tryToBuy(r)" [disabled]="busy() || !r.offer.item_id || !r.offer.merchant_id">Try to buy</button>
@@ -85,15 +72,8 @@
                     <strong>{{ d.billing_amount_chf | currency: 'CHF ' }}</strong>
                   </div>
                   <p>{{ d.customer_message }}</p>
-                  @if (important(d).length) {
-                    <ul class="checks">
-                      @for (c of important(d); track $index) {
-                        <li [class]="c.status"><span class="icon">{{ checkIcon[c.status] }}</span><div><strong>{{ c.label }}</strong> {{ c.detail }}</div></li>
-                      }
-                    </ul>
-                  }
                   <details>
-                    <summary class="faint">All {{ d.checks.length }} checks and evidence · {{ d.latency_ms }} ms</summary>
+                    <summary class="faint">Details</summary>
                     <ul class="checks">
                       @for (c of d.checks; track $index) {
                         <li [class]="c.status"><span class="icon">{{ checkIcon[c.status] }}</span><div><strong>{{ c.label }}</strong> {{ c.detail }}</div></li>
@@ -106,7 +86,7 @@
                       @if (i.breaches) { <div class="callout warn">Approving now would bring your {{ i.rule }} total to {{ i.total_if_approved_chf | currency: 'CHF ' }} (limit {{ i.limit_chf | currency: 'CHF ' }}).</div> }
                     }
                     <div class="row">
-                      <span class="faint">Waiting for your decision · {{ secondsLeft(d) }}s left</span>
+                      <span class="faint">{{ secondsLeft(d) }}s left</span>
                       <span class="spacer"></span>
                       <button class="btn primary" (click)="decideNow(d.authorization_id)">Decide</button>
                     </div>
@@ -121,7 +101,7 @@
 
       @if (mandate()) {
         <form class="composer" (ngSubmit)="send(box)">
-          <input #box name="msg" placeholder="e.g. Buy the 27-inch monitor at PixelHarbor for CHF 289" [ngModel]="input()" (ngModelChange)="input.set($event)" (keydown.enter)="$event.preventDefault(); send(box)" autocomplete="off" aria-label="Message to the shopping agent" />
+          <input #box name="msg" placeholder="What should I buy?" [ngModel]="input()" (ngModelChange)="input.set($event)" (keydown.enter)="$event.preventDefault(); send(box)" autocomplete="off" aria-label="Message to the shopping agent" />
           <button class="btn primary" type="submit" [disabled]="busy() || !input().trim()">Send</button>
         </form>
       } @else {
@@ -145,7 +125,7 @@
           @for (l of m.rule_labels ?? []; track $index) { <li>{{ l }}</li> }
           <li>When uncertain: <strong>{{ m.uncertainty_policy === 'ask' ? 'ask me' : m.uncertainty_policy }}</strong></li>
         </ul>
-        <p class="faint">The agent and the shop cannot change these checks. You can tighten or revoke them on the <a routerLink="/policy">Wallet policy</a> page; the chat uses the latest version.</p>
+        <p class="faint">Only you can change it: <a routerLink="/policy">Wallet policy</a>.</p>
       } @else {
         <p class="empty">No active policy.</p>
       }

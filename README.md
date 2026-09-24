@@ -102,9 +102,9 @@ The home page is a chat with a **simulated shopping agent**, to try wallet contr
 1. Pick the wallet policy that guards the agent and type a request, e.g.
    *"Buy the 27-inch monitor at PixelHarbor for CHF 289"*.
 2. **Review**: the agent (`backend/src/agent/shopping-agent.ts`) shows, read-only, what it understood
-   — catalogue product, quantity, price, delivery, shop and total — with its assumptions and questions
-   (e.g. a shop name that imitates one you know). There are no extra options to tweak: if it is not
-   right, cancel and ask again. The customer's wallet policy alone decides.
+   — catalogue product, quantity, price, delivery, shop and total — plus any doubt (e.g. a shop name
+   that imitates one you know). The chat is deliberately minimal: no suggested products and no extra
+   options to tweak. If it is not right, cancel and ask again. The customer's wallet policy alone decides.
 3. **Try to buy**: the agent submits it as a schema-valid authorization event and wallet control
    answers `approve`, `decline` or `step_up`, with the checks and evidence.
 

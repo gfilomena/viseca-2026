@@ -6,14 +6,7 @@ select { min-width: 0; max-width: 100%; text-overflow: ellipsis; }
 .chat { display: grid; grid-template-rows: auto 1fr auto; gap: 12px; min-height: 520px; }
 .messages { display: flex; flex-direction: column; gap: 10px; max-height: 62vh; min-height: 320px; overflow-y: auto; padding: 4px 2px; }
 
-.welcome { display: grid; gap: 6px; padding: 8px 4px; }
-.suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.chip-btn {
-  font: inherit; font-size: 13px; text-align: left; cursor: pointer; color: var(--ink-2);
-  border: 1px solid var(--line); background: var(--surface-2); border-radius: 999px; padding: 5px 11px;
-}
-.chip-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-.chip-btn:disabled { opacity: .5; cursor: not-allowed; }
+.welcome { margin: 8px 4px; }
 
 .bubble { max-width: 78%; padding: 9px 13px; border-radius: 14px; line-height: 1.45; white-space: pre-wrap; }
 .bubble.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }

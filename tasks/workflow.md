@@ -16,3 +16,6 @@ DEFINE ✅ (brief re-read: control independent of agent, untrusted shop text) ·
 
 ## Step-up modal on click + read-only purchase review — feat/step-up-modal
 DEFINE ✅ · BUILD ✅ · VERIFY ✅ (36 tests; browser: no auto-open, row click opens, Close keeps pending, Decline, read-only review, Enter to send) · SHIP ✅ (PR + merge on fork)
+
+## Minimal chat (no suggested products, read-only summary only) — feat/minimal-chat
+BUILD ✅ · VERIFY ✅ (build; browser: no suggestions, summary, decision card) · SHIP ✅ (PR + merge on fork)
