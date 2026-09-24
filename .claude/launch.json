@@ -2,6 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     { "name": "backend", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "backend", "run", "dev"], "port": 3000 },
-    { "name": "frontend", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "frontend", "start"], "port": 4200 }
+    { "name": "frontend", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "frontend", "start"], "port": 4200 },
+    { "name": "fdondi-api", "runtimeExecutable": "scripts/run_fdondi_api.sh", "runtimeArgs": [], "port": 8003, "url": "http://127.0.0.1:8003" }
   ]
 }

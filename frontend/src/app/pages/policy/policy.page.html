@@ -45,7 +45,7 @@
               <div class="rule-main">
                 <p>{{ e.text }}</p>
                 <div class="row faint">
-                  <code>{{ ruleCode(e.rule) }}</code>
+                  <span>{{ ruleCode(e.rule) }}</span>
                   @if (fromModel(e.source)) { <span class="chip model">suggested by the language model</span> }
                   @else if (e.source) { <span class="chip">from “{{ e.source }}”</span> }
                 </div>

@@ -189,8 +189,12 @@ label.check input { width: auto; min-height: 0; }
 
 .chip { display: inline-block; padding: 3px 9px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--line); font-size: 12px; color: var(--ink-2); }
 
-.segmented { display: inline-flex; background: var(--surface-2); border-radius: var(--radius-sm); padding: 3px; gap: 2px; }
-.segmented button { border: 0; background: transparent; padding: 7px 13px; font: inherit; font-weight: 600; cursor: pointer; color: var(--ink-2); border-radius: 8px; }
+.segmented {
+  display: inline-flex; max-width: 100%; background: var(--surface-2); border-radius: var(--radius-sm); padding: 3px; gap: 2px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.segmented::-webkit-scrollbar { display: none; }
+.segmented button { border: 0; background: transparent; padding: 7px 13px; font: inherit; font-weight: 600; cursor: pointer; color: var(--ink-2); border-radius: 8px; white-space: nowrap; flex: none; }
 .segmented button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); }
 
 /* grouped iOS-style list, for rows that used to be dense tables or ad-hoc stacks */

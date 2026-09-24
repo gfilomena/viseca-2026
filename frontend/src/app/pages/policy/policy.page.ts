@@ -7,6 +7,35 @@ import { LiveService } from '../../core/live.service';
 import { ShopChatStore } from '../shop/shop.page';
 import type { HardRule, Mandate, Scenario, UncertaintyPolicy } from '../../core/models';
 
+// Human-readable labels for the engine's technical field names (see backend/src/policy/compiler.ts FIELDS).
+const FIELD_LABELS: Record<string, string> = {
+  'authorization.billing_amount_chf': 'Order amount',
+  'derived.period_spend_chf': 'Spending in the window',
+  'authorization.currency': 'Currency',
+  'authorization.fulfillment_method': 'Fulfilment method',
+  'authorization.return_window_days': 'Return window',
+  'authorization.delivery_within_days': 'Delivery time',
+  'authorization.local_hour': 'Time of day (Swiss hour)',
+  'merchant.merchant_category': 'Shop category',
+  'merchant.merchant_country': 'Shop country',
+  'merchant.prior_approved_purchases': 'Prior approved purchases at this shop',
+  'items.item_id': 'Specific items',
+  'items.item_category': 'Item category',
+  'items.attribute.size': 'Size',
+  'items.quantity_total': 'Total quantity',
+  'basket.unrequested_lines': 'Unrequested add-ons',
+};
+
+const OPERATOR_LABELS: Record<string, string> = {
+  '<=': '≤', '>=': '≥', '<': '<', '>': '>', '=': '=', '!=': '≠', in: 'is one of', not_in: 'is none of',
+};
+
+/** "authorization.billing_amount_chf" -> "Order amount" for any field not in FIELD_LABELS. */
+function humanizeField(field: string): string {
+  const last = field.split('.').pop() ?? field;
+  return last.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+}
+
 const UNCERTAINTY: { value: UncertaintyPolicy; label: string; help: string }[] = [
   { value: 'ask', label: 'Ask me', help: 'Pause the purchase and ask you to approve or decline it.' },
   { value: 'decline', label: 'Decline', help: 'Stop the purchase automatically whenever something is unclear.' },
@@ -99,8 +128,11 @@ export class PolicyPage {
   protected isNumeric(rule: HardRule) { return typeof rule.value === 'number'; }
   protected valueText(rule: HardRule) { return Array.isArray(rule.value) ? rule.value.join(', ') : String(rule.value); }
   protected ruleCode(rule: HardRule) {
-    const extra = [rule.scope === 'period' ? `${rule.period_days}d window` : '', rule.currency ?? ''].filter(Boolean).join(' · ');
-    return `${rule.field} ${rule.operator} ${this.valueText(rule)}${extra ? ` (${extra})` : ''}`;
+    const label = FIELD_LABELS[rule.field] ?? humanizeField(rule.field);
+    const scoped = rule.scope === 'period' ? `Spending in any ${rule.period_days} days` : label;
+    const op = OPERATOR_LABELS[rule.operator] ?? rule.operator;
+    const value = rule.currency ? `${rule.currency} ${this.valueText(rule)}` : this.valueText(rule);
+    return `${scoped} ${op} ${value}`;
   }
 
   protected updateRuleValue(index: number, raw: string) {
