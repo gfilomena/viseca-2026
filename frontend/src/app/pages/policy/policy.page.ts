@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService, errorText } from '../../core/api.service';
 import { LiveService } from '../../core/live.service';
+import { ShopChatStore } from '../shop/shop.page';
 import type { HardRule, Mandate, Scenario, UncertaintyPolicy } from '../../core/models';
 
 const UNCERTAINTY: { value: UncertaintyPolicy; label: string; help: string }[] = [
@@ -27,14 +28,18 @@ export class PolicyPage {
   protected scenarios = signal<Scenario[]>([]);
   protected mandates = signal<Mandate[]>([]);
   protected liveApi = signal(false);
-  protected scenarioId = signal<string>('SCEN0000');
+  protected customers = signal<{ customer_id: string; persona_name: string; home_region: string }[]>([]);
+  protected customerId = signal<string | null>(null);
   protected instruction = signal('');
+  /** Rows of the policies table whose details are open. */
+  protected expanded = signal<Set<string>>(new Set());
   protected draft = signal<Mandate | null>(null);
   protected busy = signal(false);
   protected error = signal<string | null>(null);
 
-  protected selectedScenario = computed(() => this.scenarios().find((s) => s.scenario_id === this.scenarioId()));
-  protected active = computed(() => this.mandates().filter((m) => m.status === 'active'));
+  protected customer = computed(() => this.customers().find((c) => c.customer_id === this.customerId()) ?? null);
+  protected active = computed(() => this.mandates().filter((m) => m.status === 'active')
+    .sort((a, b) => (a.persona_name ?? '').localeCompare(b.persona_name ?? '') || (b.confirmed_at ?? '').localeCompare(a.confirmed_at ?? '')));
   protected revoked = computed(() => this.mandates().filter((m) => m.status === 'revoked' || m.status === 'superseded'));
   /** Active policies on the same card as the draft: confirming the draft replaces them. */
   protected replaces = computed(() => {
@@ -52,10 +57,13 @@ export class PolicyPage {
   protected tDecline = false;
 
   constructor() {
-    this.api.scenarios().then((s) => {
-      this.scenarios.set(s);
-      this.pickScenario(s[0]?.scenario_id ?? 'SCEN0000');
-    });
+    this.api.scenarios().then((s) => this.scenarios.set(s)).catch(() => {});
+    // Default to whoever is selected on the Shop page, so both pages talk about the same person.
+    const shopFor = inject(ShopChatStore).customerId();
+    this.api.customers().then((c) => {
+      this.customers.set(c);
+      this.customerId.set(c.some((x) => x.customer_id === shopFor) ? shopFor : c[0]?.customer_id ?? null);
+    }).catch(() => {});
     this.api.health().then((h) => this.liveApi.set(h.live)).catch(() => {});
     effect(() => {
       const msg = this.live.last();
@@ -65,16 +73,18 @@ export class PolicyPage {
 
   private reload() {
     this.api.mandates().then((ms) => {
-      for (const m of ms) this.runScenario[m.id] ??= m.scenario_id ?? 'SCEN0000';
+      for (const m of ms) this.runScenario[m.id] ??= m.scenario_id ?? this.scenarios().find((x) => x.card_id === m.card_id)?.scenario_id ?? 'SCEN0000';
       this.mandates.set(ms);
     }).catch((e) => this.error.set(errorText(e)));
   }
 
-  protected pickScenario(id: string) {
-    this.scenarioId.set(id);
-    const s = this.scenarios().find((x) => x.scenario_id === id);
-    if (s) this.instruction.set(s.cardholder_instruction);
+  protected pickCustomer(id: string) {
+    this.customerId.set(id);
     this.draft.set(null);
+  }
+
+  protected toggle(id: string) {
+    this.expanded.update((set) => { const n = new Set(set); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   }
 
   private async guard<T>(fn: () => Promise<T>): Promise<T | undefined> {
@@ -84,7 +94,7 @@ export class PolicyPage {
   }
 
   protected interpret() {
-    this.guard(async () => this.draft.set(await this.api.draft(this.instruction(), this.scenarioId())));
+    this.guard(async () => this.draft.set(await this.api.draft(this.instruction(), this.customerId() ?? undefined)));
   }
 
   protected isNumeric(rule: HardRule) { return typeof rule.value === 'number'; }
@@ -125,13 +135,15 @@ export class PolicyPage {
     this.guard(async () => {
       const m = await this.api.confirm(d.id);
       this.draft.set(null);
-      this.runScenario[m.id] = m.scenario_id ?? this.scenarioId();
+      this.runScenario[m.id] = m.scenario_id ?? this.scenarios().find((x) => x.card_id === m.card_id)?.scenario_id ?? 'SCEN0000';
+      this.instruction.set('');
+      this.expanded.update((set) => new Set(set).add(m.id));
       this.reload();
     });
   }
 
   protected startRun(m: Mandate) {
-    const scenario = this.runScenario[m.id] ?? m.scenario_id ?? this.scenarioId();
+    const scenario = this.runScenario[m.id] ?? m.scenario_id ?? 'SCEN0000';
     const mode = this.runMode[m.id] ?? (this.liveApi() && m.remote_mandate_id ? 'live' : 'offline');
     this.guard(async () => {
       const run = await this.api.startRun(scenario, m.id, mode);

@@ -19,7 +19,7 @@ export class ApiService {
   cardProfile = (cardId: string) => this.get<CardProfile>(`/cards/${cardId}/profile`);
 
   mandates = () => this.get<Mandate[]>('/mandates');
-  draft = (instruction: string, scenario_id?: string) => this.send<Mandate>('POST', '/mandates', { instruction, scenario_id });
+  draft = (instruction: string, customer_id?: string) => this.send<Mandate>('POST', '/mandates', { instruction, customer_id });
   editDraft = (id: string, patch: { hard_rules?: HardRule[]; uncertainty_policy?: UncertaintyPolicy }) => this.send<Mandate>('PUT', `/mandates/${id}/draft`, patch);
   confirm = (id: string) => this.send<Mandate>('POST', `/mandates/${id}/confirm`);
   tighten = (id: string, patch: { add_rules?: HardRule[]; uncertainty_policy?: UncertaintyPolicy }) => this.send<Mandate>('PATCH', `/mandates/${id}`, patch);
