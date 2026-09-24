@@ -7,7 +7,6 @@ import fs from 'node:fs';
 // Isolated database for the test run.
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'leash-test-'));
 process.env.DB_PATH = path.join(dir, 'test.db');
-process.env.TEAM_API_KEY = '';
 
 const { config } = await import('../config.ts');
 const { seed } = await import('../db/seed.ts');
@@ -22,7 +21,7 @@ async function replay(scenarioId: string, onPending?: (id: string, src: string) 
   const { cardholder_instruction } = getDb().prepare('SELECT cardholder_instruction FROM scenario_catalogue WHERE scenario_id = ?').get(scenarioId) as any;
   const draft = createDraft(cardholder_instruction, scenarioId);
   const m = await confirmDraft(draft.id);
-  const run = await startRun(scenarioId, m.id, 'offline', stepMs);
+  const run = await startRun(scenarioId, m.id, stepMs);
   // Wait for the async replay to finish; resolve step-ups as they appear if asked to.
   const total = (getDb().prepare('SELECT COUNT(*) AS n FROM purchase_attempts WHERE scenario_id = ?').get(scenarioId) as any).n;
   const handled = new Set<string>();
@@ -98,7 +97,7 @@ test('revocation declines pending step-ups and a revoked policy cannot start run
   const after = listDecisions({}).find((d) => d.authorization_id === byId.AU0016.authorization_id)!;
   assert.equal(after.status, 'declined');
   assert.equal(after.resolved_by, 'revocation');
-  await assert.rejects(startRun('SCEN0002', m.id, 'offline', 0));
+  await assert.rejects(startRun('SCEN0002', m.id, 0));
 });
 
 test('late approval of a step-up warns when it would breach the rolling limit', async () => {
@@ -120,7 +119,7 @@ test('compiler never loosens: tightening only adds rules and only moves towards 
 });
 
 test('offline events conform to the official authorization event schema', async () => {
-  const { validateEvent } = await import('../remote/worker.ts');
+  const { validateEvent } = await import('../domain/validate-event.ts');
   const { byId } = await replay('SCEN0004');
   for (const d of Object.values(byId) as any[]) {
     assert.ok(validateEvent(d.event), `${d.source_authorization_id}: ${JSON.stringify(validateEvent.errors)}`);

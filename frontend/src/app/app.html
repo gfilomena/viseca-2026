@@ -18,9 +18,6 @@
   <div class="status">
     <span class="dot" [class.on]="live.connected()"></span>
     <span class="faint">{{ live.connected() ? 'Engine connected' : 'Engine offline' }}</span>
-    @if (health(); as h) {
-      <span class="badge" [class.active]="h.live">{{ h.live ? 'Hosted API on' : 'Offline replay' }}</span>
-    }
   </div>
 </header>
 <main>

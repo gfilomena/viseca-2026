@@ -126,7 +126,7 @@
             <tr [class.open]="expanded().has(m.id)">
               <td data-label="Customer">
                 <strong>{{ m.persona_name ?? '—' }}</strong>
-                <span class="faint block">card {{ m.card_id }} · <code>{{ m.remote_mandate_id ?? m.id }}</code></span>
+                <span class="faint block">card {{ m.card_id }} · <code>{{ m.id }}</code></span>
               </td>
               <td data-label="Policy" class="instruction"><span class="clamp" [attr.title]="m.instruction">“{{ m.instruction }}”</span></td>
               <td data-label="Checks" class="num">{{ m.hard_rules.length }}</td>
@@ -158,11 +158,6 @@
                         <select [(ngModel)]="runScenario[m.id]" aria-label="Scenario to replay">
                           @for (s of scenarios(); track s.scenario_id) { <option [value]="s.scenario_id">{{ s.scenario_id }} · {{ s.scenario_name }}</option> }
                         </select>
-                        <div class="segmented" role="radiogroup" aria-label="Where the purchases come from">
-                          <button type="button" role="radio" [attr.aria-checked]="(runMode[m.id] ?? (liveApi() && m.remote_mandate_id ? 'live' : 'offline')) === 'offline'" [class.on]="(runMode[m.id] ?? (liveApi() && m.remote_mandate_id ? 'live' : 'offline')) === 'offline'" (click)="runMode[m.id] = 'offline'">Offline replay</button>
-                          <button type="button" role="radio" [disabled]="!liveApi() || !m.remote_mandate_id" [attr.aria-checked]="(runMode[m.id] ?? (liveApi() && m.remote_mandate_id ? 'live' : 'offline')) === 'live'" [class.on]="(runMode[m.id] ?? (liveApi() && m.remote_mandate_id ? 'live' : 'offline')) === 'live'" (click)="runMode[m.id] = 'live'"
-                                  [attr.title]="liveApi() ? '' : 'Set TEAM_API_KEY on the backend to use the hosted simulator'">Hosted simulator</button>
-                        </div>
                         <button class="btn primary" (click)="startRun(m)" [disabled]="busy()">Start run</button>
                       </div>
                     </section>

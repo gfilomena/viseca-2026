@@ -1,9 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { getDb, json } from '../db/db.ts';
-import { liveEnabled } from '../config.ts';
 import type { HardRule, UncertaintyPolicy } from '../domain/types.ts';
 import { compileInstruction, describeRule, type PolicyDraft, type RuleExplanation } from '../policy/compiler.ts';
-import { api } from '../remote/client.ts';
 import { catalogueItems } from './catalog.ts';
 import { parsePreferences } from '../engine/preferences.ts';
 import { llmConfig, reviewDraft } from '../policy/llm.ts';
@@ -36,7 +34,6 @@ export class PolicyError extends Error {
   constructor(message: string, status = 400) { super(message); this.status = status; }
 }
 
-const pick = (o: any, k: string) => o?.[k] ?? o?.data?.[k] ?? o?.mandate?.[k] ?? o?.data?.mandate?.[k];
 const now = () => new Date().toISOString();
 
 function rowToMandate(r: any): Mandate {
@@ -183,45 +180,28 @@ export function editDraft(id: string, patch: { hard_rules?: HardRule[]; uncertai
   return m;
 }
 
-/** Step 2: the customer agrees. Mirrors the policy to the hosted API when a team key is configured. */
+/** Step 2: the customer agrees. Purely local — nothing is mirrored to a hosted API. */
 export async function confirmDraft(id: string): Promise<Mandate> {
   const m = getMandate(id);
   if (m.status !== 'draft') throw new PolicyError(`Mandate is ${m.status}`, 409);
-  if (liveEnabled()) {
-    const created = await api('/v1/mandates', {
-      method: 'POST',
-      body: { instruction: m.instruction, hard_rules: m.hard_rules.map(stripNulls), uncertainty_policy: m.uncertainty_policy, guidance: m.guidance, open_questions: m.open_questions },
-    });
-    m.remote_draft_id = pick(created.data, 'draft_id');
-    const confirmed = await api(`/v1/mandates/${m.remote_draft_id}/confirm`, { method: 'POST', body: { confirmed: true } });
-    m.remote_mandate_id = pick(confirmed.data, 'mandate_id');
-  }
   m.status = 'active';
   m.confirmed_at = now();
-  m.audit.push({ at: now(), action: 'confirmed', detail: m.remote_mandate_id ? `Active as ${m.remote_mandate_id}` : 'Active (local)' });
+  m.audit.push({ at: now(), action: 'confirmed', detail: 'Active (local)' });
   save(m);
   m.replaced_ids = await supersedeOthers(m);
   return m;
 }
 
-/**
- * One card, one active wallet policy: confirming a new one withdraws the previous
- * permission (revoked on the platform, 'superseded' here). Returns the replaced ids.
- */
+/** One card, one active wallet policy: confirming a new one withdraws the previous permission ('superseded'). Returns the replaced ids. */
 async function supersedeOthers(m: Mandate): Promise<string[]> {
   if (!m.card_id) return [];
   const others = listMandates().filter((o) => o.id !== m.id && o.status === 'active' && o.card_id === m.card_id);
   for (const o of others) {
-    let note = '';
-    if (liveEnabled() && o.remote_mandate_id) {
-      try { await api(`/v1/mandates/${o.remote_mandate_id}`, { method: 'DELETE' }); }
-      catch (e) { note = ` (platform revocation failed: ${(e as Error).message.slice(0, 120)})`; }
-    }
     o.status = 'superseded';
     o.revoked_at = now();
-    o.audit.push({ at: now(), action: 'superseded', detail: `Replaced by ${m.remote_mandate_id ?? m.id}${note}` });
+    o.audit.push({ at: now(), action: 'superseded', detail: `Replaced by ${m.id}` });
     save(o);
-    m.audit.push({ at: now(), action: 'replaced', detail: `Replaced ${o.remote_mandate_id ?? o.id} for card ${m.card_id}` });
+    m.audit.push({ at: now(), action: 'replaced', detail: `Replaced ${o.id} for card ${m.card_id}` });
   }
   if (others.length) save(m);
   return others.map((o) => o.id);
@@ -240,15 +220,12 @@ export async function tighten(id: string, patch: { add_rules?: HardRule[]; uncer
   if (patch.uncertainty_policy && patch.uncertainty_policy !== m.uncertainty_policy && patch.uncertainty_policy !== 'decline') {
     throw new PolicyError('The uncertainty policy can only be tightened to "decline".');
   }
-  const body: Record<string, unknown> = {};
-  if (add.length) body.hard_rules = [...m.hard_rules, ...add].map(stripNulls);
-  if (patch.uncertainty_policy && patch.uncertainty_policy !== m.uncertainty_policy) body.uncertainty_policy = patch.uncertainty_policy;
-  if (!Object.keys(body).length) return m;
-  if (liveEnabled() && m.remote_mandate_id) await api(`/v1/mandates/${m.remote_mandate_id}`, { method: 'PATCH', body });
+  const tighterUncertainty = patch.uncertainty_policy && patch.uncertainty_policy !== m.uncertainty_policy ? patch.uncertainty_policy : null;
+  if (!add.length && !tighterUncertainty) return m;
   m.hard_rules = [...m.hard_rules, ...add];
   m.explanations = [...m.explanations, ...add.map((rule) => ({ rule, text: describeRule(rule), source: 'added by customer' }))];
-  if (body.uncertainty_policy) m.uncertainty_policy = body.uncertainty_policy as UncertaintyPolicy;
-  m.audit.push({ at: now(), action: 'tightened', detail: [add.length ? `${add.length} rule(s) added` : '', body.uncertainty_policy ? `uncertainty → ${body.uncertainty_policy}` : ''].filter(Boolean).join(', ') + ' (applies to new runs)' });
+  if (tighterUncertainty) m.uncertainty_policy = tighterUncertainty;
+  m.audit.push({ at: now(), action: 'tightened', detail: [add.length ? `${add.length} rule(s) added` : '', tighterUncertainty ? `uncertainty → ${tighterUncertainty}` : ''].filter(Boolean).join(', ') + ' (applies to new runs)' });
   save(m);
   return m;
 }
@@ -256,7 +233,6 @@ export async function tighten(id: string, patch: { add_rules?: HardRule[]; uncer
 export async function revoke(id: string): Promise<Mandate> {
   const m = getMandate(id);
   if (m.status === 'revoked' || m.status === 'superseded') return m;
-  if (liveEnabled() && m.remote_mandate_id) await api(`/v1/mandates/${m.remote_mandate_id}`, { method: 'DELETE' });
   m.status = 'revoked';
   m.revoked_at = now();
   m.audit.push({ at: now(), action: 'revoked', detail: 'Permission withdrawn by the customer' });
@@ -274,9 +250,4 @@ function validateRules(rules: HardRule[]) {
     if (!ok) throw new PolicyError(`Invalid value for ${r.field}`);
     if (r.period_days != null && (!Number.isInteger(r.period_days) || r.period_days < 1)) throw new PolicyError('period_days must be a whole number ≥ 1');
   }
-}
-
-/** The API wants unused optional fields omitted rather than null. */
-function stripNulls(r: HardRule): HardRule {
-  return Object.fromEntries(Object.entries(r).filter(([, v]) => v !== null && v !== undefined)) as unknown as HardRule;
 }

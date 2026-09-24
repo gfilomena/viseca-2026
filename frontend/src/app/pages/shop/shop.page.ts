@@ -198,7 +198,7 @@ export class ShopPage {
     return i.length ? i.map((c) => c.label).join(' · ') : 'All checks passed';
   }
   protected source(d: DecisionRow) {
-    return d.run_mode === 'sandbox' ? 'Chat' : d.run_mode === 'live' ? `Simulator · ${d.scenario_id}` : `Replay · ${d.scenario_id}`;
+    return d.run_mode === 'sandbox' ? 'Chat' : `Replay · ${d.scenario_id}`;
   }
   protected asReview(m: ChatMessage) { return m as Extract<ChatMessage, { kind: 'review' }>; }
   protected asDecision(m: ChatMessage) { return this.decisions()[(m as Extract<ChatMessage, { kind: 'decision' }>).authorizationId] ?? null; }

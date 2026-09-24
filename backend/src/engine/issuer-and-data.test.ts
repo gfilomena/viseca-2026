@@ -6,7 +6,6 @@ import fs from 'node:fs';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'leash-test-'));
 process.env.DB_PATH = path.join(dir, 'test.db');
-process.env.TEAM_API_KEY = '';
 
 const { config } = await import('../config.ts');
 const { seed, PackVerificationError } = await import('../db/seed.ts');
@@ -32,7 +31,7 @@ function packCopy(): string {
 async function eventsOf(scenarioId: string) {
   const { cardholder_instruction } = getDb().prepare('SELECT cardholder_instruction FROM scenario_catalogue WHERE scenario_id = ?').get(scenarioId) as any;
   const m = await confirmDraft(createDraft(cardholder_instruction, scenarioId).id);
-  const run = await startRun(scenarioId, m.id, 'offline', 0);
+  const run = await startRun(scenarioId, m.id, 0);
   const total = (getDb().prepare('SELECT COUNT(*) AS n FROM purchase_attempts WHERE scenario_id = ?').get(scenarioId) as any).n;
   for (let i = 0; i < 400 && listDecisions({ run_id: run.id }).length < total; i++) await new Promise((r) => setTimeout(r, 5));
   return Object.fromEntries(listDecisions({ run_id: run.id }).map((d) => [d.source_authorization_id, d.event]));
