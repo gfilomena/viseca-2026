@@ -38,9 +38,11 @@ export class PolicyPage {
   protected error = signal<string | null>(null);
 
   protected customer = computed(() => this.customers().find((c) => c.customer_id === this.customerId()) ?? null);
-  protected active = computed(() => this.mandates().filter((m) => m.status === 'active')
-    .sort((a, b) => (a.persona_name ?? '').localeCompare(b.persona_name ?? '') || (b.confirmed_at ?? '').localeCompare(a.confirmed_at ?? '')));
-  protected revoked = computed(() => this.mandates().filter((m) => m.status === 'revoked' || m.status === 'superseded'));
+  /** Only the selected customer's policies — the table follows the "For" dropdown. */
+  protected active = computed(() => this.mandates().filter((m) => m.status === 'active' && m.customer_id === this.customerId())
+    .sort((a, b) => (b.confirmed_at ?? '').localeCompare(a.confirmed_at ?? '')));
+  protected revoked = computed(() => this.mandates().filter((m) => (m.status === 'revoked' || m.status === 'superseded') && m.customer_id === this.customerId())
+    .sort((a, b) => (b.revoked_at ?? '').localeCompare(a.revoked_at ?? '')));
   /** Active policies on the same card as the draft: confirming the draft replaces them. */
   protected replaces = computed(() => {
     const d = this.draft();

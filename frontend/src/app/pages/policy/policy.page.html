@@ -104,7 +104,7 @@
   <!-- 3. Active policies -->
   <article class="card stack">
     <header>
-      <h2><span class="step">3</span> Active policies</h2>
+      <h2><span class="step">3</span> {{ customer()?.persona_name ?? "Customer" }}'s policies</h2>
       <span class="faint">{{ active().length }} active · {{ revoked().length }} revoked or replaced</span>
     </header>
 
@@ -205,7 +205,7 @@
       </table>
     } @else {
       <div class="empty stack-sm">
-        <p>No active policy yet.</p>
+        <p>{{ customer()?.persona_name ?? "This customer" }} has no active policy yet.</p>
         <p class="faint">Describe what the agent may buy in step 1, review it, then confirm.</p>
       </div>
     }

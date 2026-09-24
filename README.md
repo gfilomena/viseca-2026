@@ -146,9 +146,10 @@ rather than by the scenario fixture windows. Below the chat, **All transactions*
 - **Draft → confirm**: on *Wallet policy* the customer picks who the policy is for (any customer of the
   data pack; it applies to their delegated card, or their most used card) and writes the instruction in
   their own words. It is compiled into checks with explanations, the phrase each came from, and open
-  questions. Active policies are listed in a table (customer, policy, checks, uncertainty choice,
-  confirmation date) with *Details* (checks, run launcher, history), *Tighten* and *Revoke*. Nothing is enforced until the customer confirms. The exact original wording
-  is stored and sent to the platform.
+  questions. The policies table is scoped to whoever is selected in *For*: it lists only that
+  customer's policies (customer, policy, checks, uncertainty choice, confirmation date) with
+  *Details* (checks, run launcher, history), *Tighten* and *Revoke*. Nothing is enforced until the
+  customer confirms. The exact original wording is stored and sent to the platform.
 - **One active policy per card**: confirming a new policy replaces the previous one for that card
   (revoked on the platform, `superseded` locally; purchases waiting under it are declined). The draft
   warns before this happens.
