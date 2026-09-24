@@ -6,7 +6,6 @@ import fs from 'node:fs';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'leash-test-'));
 process.env.DB_PATH = path.join(dir, 'test.db');
-process.env.TEAM_API_KEY = '';
 
 const { seed } = await import('../db/seed.ts');
 const { getDb } = await import('../db/db.ts');
@@ -14,7 +13,7 @@ const { createDraft, confirmDraft, revoke } = await import('../services/mandates
 const { interpretForMandate, tryToBuy } = await import('../services/sandbox.ts');
 const { resolveStepUp, cascadeRevocation } = await import('../services/runs.ts');
 const { getDecision } = await import('../services/decisions.ts');
-const { validateEvent } = await import('../remote/worker.ts');
+const { validateEvent } = await import('../domain/validate-event.ts');
 
 seed(getDb());
 

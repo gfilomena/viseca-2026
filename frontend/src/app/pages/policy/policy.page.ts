@@ -27,7 +27,6 @@ export class PolicyPage {
   protected readonly uncertaintyOptions = UNCERTAINTY;
   protected scenarios = signal<Scenario[]>([]);
   protected mandates = signal<Mandate[]>([]);
-  protected liveApi = signal(false);
   protected customers = signal<{ customer_id: string; persona_name: string; home_region: string }[]>([]);
   protected customerId = signal<string | null>(null);
   protected instruction = signal('');
@@ -51,7 +50,6 @@ export class PolicyPage {
 
   // Per-mandate UI state for running and tightening.
   protected runScenario: Record<string, string> = {};
-  protected runMode: Record<string, 'offline' | 'live'> = {};
   protected tightenOpen = signal<string | null>(null);
   protected tLimit: number | null = null;
   protected tBlock = '';
@@ -66,7 +64,6 @@ export class PolicyPage {
       this.customers.set(c);
       this.customerId.set(c.some((x) => x.customer_id === shopFor) ? shopFor : c[0]?.customer_id ?? null);
     }).catch(() => {});
-    this.api.health().then((h) => this.liveApi.set(h.live)).catch(() => {});
     effect(() => {
       const msg = this.live.last();
       if (!msg || msg.type === 'mandate') this.reload();
@@ -146,9 +143,8 @@ export class PolicyPage {
 
   protected startRun(m: Mandate) {
     const scenario = this.runScenario[m.id] ?? m.scenario_id ?? 'SCEN0000';
-    const mode = this.runMode[m.id] ?? (this.liveApi() && m.remote_mandate_id ? 'live' : 'offline');
     this.guard(async () => {
-      const run = await this.api.startRun(scenario, m.id, mode);
+      const run = await this.api.startRun(scenario, m.id);
       await this.router.navigate(['/activity'], { queryParams: { run: run.id } });
     });
   }

@@ -1,15 +1,13 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { getDb, packReport } from '../db/db.ts';
-import { config, liveEnabled } from '../config.ts';
+import { config } from '../config.ts';
 import { bus, type BusMessage } from '../services/bus.ts';
 import { createReviewedDraft, editDraft, confirmDraft, tighten, revoke, getMandate, listMandates, PolicyError } from '../services/mandates.ts';
 import { listRuns, getRun, startRun, resolveStepUp, cascadeRevocation } from '../services/runs.ts';
 import { approvalImpact, getDecision, listDecisions } from '../services/decisions.ts';
+import { resetLocal } from '../services/reset.ts';
 import { getCardProfile } from '../engine/profile.ts';
 import { parsePreferences } from '../engine/preferences.ts';
-import { RemoteError, api } from '../remote/client.ts';
-import { workerState } from '../remote/worker.ts';
-import { fetchEvents, fetchReferenceData, getRemoteMandate, listPendingTransactions, platform, resetTeam, syncPlatform } from '../remote/platform.ts';
 import { describeRule } from '../policy/compiler.ts';
 import { llmConfig } from '../policy/llm.ts';
 import { openaiConfig } from '../policy/openai-compiler.ts';
@@ -17,7 +15,6 @@ import { interpretForMandateSmart, sandboxOptions, tryToBuy } from '../services/
 
 function fail(reply: FastifyReply, e: unknown) {
   if (e instanceof PolicyError) return reply.code(e.status).send({ error: e.message });
-  if (e instanceof RemoteError) return reply.code(502).send({ error: e.message, remote: e.body });
   console.error(e);
   return reply.code(500).send({ error: (e as Error).message });
 }
@@ -26,7 +23,7 @@ export async function routes(app: FastifyInstance) {
   const db = getDb();
 
   app.get('/api/health', async () => ({
-    ok: true, engine: config.engineVersion, pack: packReport(), live: liveEnabled(), worker: workerState, platform, policy_llm: { enabled: llmConfig.enabled, model: llmConfig.model },
+    ok: true, engine: config.engineVersion, pack: packReport(), policy_llm: { enabled: llmConfig.enabled, model: llmConfig.model },
     openai_interpreter: { enabled: openaiConfig.enabled, model: openaiConfig.model },
     data: Object.fromEntries(['customers', 'cards', 'merchants', 'items', 'authorization_history', 'purchase_attempts']
       .map((t) => [t, (db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n])),
@@ -94,15 +91,10 @@ export async function routes(app: FastifyInstance) {
   // --- Runs and decisions ---------------------------------------------------
   app.get('/api/runs', async () => listRuns());
   app.get<{ Params: { id: string } }>('/api/runs/:id', async (req, reply) => {
-    try {
-      const run = getRun(req.params.id);
-      let remote: unknown = null;
-      if (run.mode === 'live' && run.remote_run_id && liveEnabled()) remote = (await api(`/v1/scenario-runs/${run.remote_run_id}`).catch(() => ({ data: null }))).data;
-      return { ...run, remote };
-    } catch (e) { return fail(reply, e); }
+    try { return getRun(req.params.id); } catch (e) { return fail(reply, e); }
   });
-  app.post<{ Body: { scenario_id: string; mandate_id: string; mode?: 'offline' | 'live'; step_ms?: number } }>('/api/runs', async (req, reply) => {
-    try { return reply.code(201).send(await startRun(req.body.scenario_id, req.body.mandate_id, req.body.mode ?? 'offline', req.body.step_ms)); } catch (e) { return fail(reply, e); }
+  app.post<{ Body: { scenario_id: string; mandate_id: string; step_ms?: number } }>('/api/runs', async (req, reply) => {
+    try { return reply.code(201).send(await startRun(req.body.scenario_id, req.body.mandate_id, req.body.step_ms)); } catch (e) { return fail(reply, e); }
   });
   app.get<{ Querystring: { run_id?: string; status?: string } }>('/api/decisions', async (req) => {
     const runs = new Map(listRuns().map((r) => [r.id, r]));
@@ -131,29 +123,7 @@ export async function routes(app: FastifyInstance) {
     try { return reply.code(201).send(tryToBuy(req.body.mandate_id, req.body.offer)); } catch (e) { return fail(reply, e); }
   });
 
-  // --- Platform --------------------------------------------------------------
-  app.post('/api/platform/sync', async () => syncPlatform());
-  app.post('/api/team/reset', async (_req, reply) => {
-    try { return await resetTeam(); } catch (e) { return fail(reply, e); }
-  });
-
-  // --- Hosted API pass-throughs (live mode only) ------------------------------
-  // "Products": the hosted API has no catalogue endpoint of its own — /v1/reference-data
-  // is the closest it offers (scenarios, fixed fx rates, history-file metadata); the item
-  // and merchant catalogue itself only ships in the offline data pack.
-  app.get('/api/live/reference-data', async (_req, reply) => {
-    try { return await fetchReferenceData(); } catch (e) { return fail(reply, e); }
-  });
-  // "Pending transactions": every pending and final authorization the platform holds for the team.
-  app.get('/api/live/authorizations', async (_req, reply) => {
-    try { return await listPendingTransactions(); } catch (e) { return fail(reply, e); }
-  });
-  app.get<{ Querystring: { since?: string } }>('/api/live/events', async (req, reply) => {
-    try { return await fetchEvents(req.query.since ?? 0); } catch (e) { return fail(reply, e); }
-  });
-  app.get<{ Params: { id: string } }>('/api/live/mandates/:id', async (req, reply) => {
-    try { return await getRemoteMandate(req.params.id); } catch (e) { return fail(reply, e); }
-  });
+  app.post('/api/team/reset', async () => resetLocal());
 
   // --- Server-sent events for the UI ----------------------------------------
   app.get('/api/stream', (req, reply) => {

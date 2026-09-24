@@ -47,10 +47,9 @@ export interface Scenario {
 
 export interface Run {
   id: string;
-  mode: 'offline' | 'live' | 'sandbox';
+  mode: 'offline' | 'sandbox';
   scenario_id: string;
   mandate_id: string;
-  remote_run_id: string | null;
   status: 'running' | 'completed' | 'failed';
   created_at: string;
   error: string | null;
@@ -81,14 +80,12 @@ export interface DecisionRow {
   checks: Check[];
   evidence: string[];
   latency_ms: number;
-  remote_submitted: number;
-  remote_error: string | null;
   human_deadline_at: string | null;
   resolved_by: string | null;
   resolved_at: string | null;
   resolution_note: string | null;
   created_at: string;
-  run_mode?: 'offline' | 'live' | 'sandbox';
+  run_mode?: 'offline' | 'sandbox';
   scenario_id?: string;
   impact?: { rule: string; limit_chf: number; total_if_approved_chf: number; breaches: boolean }[];
   event?: { authorization: { items: CartLine[]; merchant: { merchant_name: string; merchant_city: string; merchant_country: string; merchant_category: string; merchant_mcc: string }; customer_device_id: string; delivery_fee: number; currency: string; amount: number; order_returnable: string; fulfillment_method: string; recent_attempt_count_10m: number } };
@@ -96,15 +93,7 @@ export interface DecisionRow {
 
 export interface PackReport { ok: boolean; verified_at: string; pack_version: string | null; errors: string[]; warnings: string[]; checks: { name: string; ok: boolean; detail: string }[] }
 
-export interface PlatformState {
-  checked_at: string | null; reachable: boolean | null; live: boolean; bootstrap_ok: boolean | null;
-  human_window_seconds: number; human_window_source: 'default' | 'bootstrap';
-  decision_deadline_seconds: number; decision_deadline_source: 'default' | 'bootstrap';
-  reset_enabled: boolean | null;
-  local_pack_version: string | null; remote_pack_version: string | null; pack_match: boolean | null; error: string | null;
-}
-
-export interface Health { ok: boolean; engine: string; live: boolean; pack: PackReport | null; platform?: PlatformState; policy_llm?: { enabled: boolean; model: string }; openai_interpreter?: { enabled: boolean; model: string }; worker: { running: boolean; lastError: string | null; handled: number }; data: Record<string, number> }
+export interface Health { ok: boolean; engine: string; pack: PackReport | null; policy_llm?: { enabled: boolean; model: string }; openai_interpreter?: { enabled: boolean; model: string }; data: Record<string, number> }
 
 export interface CardProfile {
   card: Record<string, string | number>;

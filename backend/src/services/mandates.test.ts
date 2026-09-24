@@ -6,7 +6,6 @@ import fs from 'node:fs';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'leash-test-'));
 process.env.DB_PATH = path.join(dir, 'test.db');
-process.env.TEAM_API_KEY = '';
 
 const { seed } = await import('../db/seed.ts');
 const { getDb } = await import('../db/db.ts');
@@ -34,7 +33,7 @@ test('confirming a new policy for the same card replaces the previous one', asyn
   assert.ok(old.audit.some((a) => a.action === 'superseded'));
   assert.equal(getDecision(pending.authorization_id)!.status, 'declined');
   assert.match(getDecision(pending.authorization_id)!.resolution_note!, /replaced/);
-  await assert.rejects(startRun('SCEN0002', first.id, 'offline', 0), /replaced/);
+  await assert.rejects(startRun('SCEN0002', first.id, 0), /replaced/);
   await assert.rejects(tighten(first.id, { uncertainty_policy: 'decline' }));
   assert.equal(getMandate(second.id).status, 'active');
 });

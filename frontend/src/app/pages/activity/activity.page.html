@@ -4,22 +4,14 @@
       <h1>Purchases</h1>
       <p>Every purchase the agent proposes is checked against your confirmed policy in milliseconds. Anything uncertain waits for you.</p>
     </div>
-    <div class="stack-sm run-pick-wrap">
-      <label class="field run-pick">
-        Run
-        <select [ngModel]="runId()" (ngModelChange)="selectRun($event)">
-          @for (r of runs(); track r.id) {
-            <option [value]="r.id">{{ r.scenario_id }} · {{ r.mode }} · {{ r.created_at | date: 'shortTime' }} ({{ r.status }})</option>
-          } @empty { <option disabled>No runs yet</option> }
-        </select>
-      </label>
-      @if (currentRun(); as r) {
-        <span class="badge" [class.active]="r.mode === 'live'" [class.pending]="r.mode === 'sandbox'"
-              [attr.title]="r.mode === 'live' ? 'This run\'s data came from the hosted Viseca v1 API, not the offline replay.' : ''">
-          {{ r.mode === 'live' ? '● LIVE v1 data' : r.mode === 'sandbox' ? '◐ sandbox (v1, live decision-request loop)' : '○ offline replay' }}
-        </span>
-      }
-    </div>
+    <label class="field run-pick">
+      Run
+      <select [ngModel]="runId()" (ngModelChange)="selectRun($event)">
+        @for (r of runs(); track r.id) {
+          <option [value]="r.id">{{ r.scenario_id }} · {{ r.mode }} · {{ r.created_at | date: 'shortTime' }} ({{ r.status }})</option>
+        } @empty { <option disabled>No runs yet</option> }
+      </select>
+    </label>
   </div>
 
   @if (error()) { <div class="callout error" role="alert">{{ error() }}</div> }
@@ -75,7 +67,7 @@
       <header>
         <h2>Timeline</h2>
         @if (currentRun(); as r) {
-          <span class="faint">Policy <code>{{ r.mandate_id }}</code> · {{ r.mode === 'live' ? 'hosted simulator ' + (r.remote_run_id ?? '') : r.mode === 'sandbox' ? 'sandbox · v1 decision-request loop' : 'offline replay' }}</span>
+          <span class="faint">Policy <code>{{ r.mandate_id }}</code> · {{ r.mode === 'sandbox' ? 'shop chat' : 'offline replay' }}</span>
         }
       </header>
       <div class="table-wrap">
@@ -159,10 +151,7 @@
           <ul class="evidence">@for (e of d.evidence; track $index) { <li>{{ e }}</li> }</ul>
         </details>
 
-        <p class="faint mono">
-          {{ d.authorization_id }} · source {{ d.source_authorization_id }} · {{ d.latency_ms }} ms
-          @if (d.remote_submitted) { · sent to simulator } @if (d.remote_error) { · <span class="bad">{{ d.remote_error }}</span> }
-        </p>
+        <p class="faint mono">{{ d.authorization_id }} · source {{ d.source_authorization_id }} · {{ d.latency_ms }} ms</p>
         <p class="faint">Reason codes: {{ d.reason_codes.join(', ') }}</p>
       </aside>
     }
