@@ -47,7 +47,7 @@ export interface Scenario {
 
 export interface Run {
   id: string;
-  mode: 'offline' | 'live';
+  mode: 'offline' | 'live' | 'sandbox';
   scenario_id: string;
   mandate_id: string;
   remote_run_id: string | null;

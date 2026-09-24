@@ -1,4 +1,5 @@
 .run-pick { min-width: 320px; }
+.run-pick-wrap { align-items: flex-end; }
 .inbox { border-color: #f3d19a; background: linear-gradient(0deg, var(--surface), #fffaf0); }
 .pending-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
 .pending { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 12px; display: grid; gap: 8px; }
