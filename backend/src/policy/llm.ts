@@ -22,22 +22,26 @@ export const llmConfig = {
   timeoutMs: Number(process.env.POLICY_LLM_TIMEOUT_MS ?? 20_000),
 };
 
-const OPERATORS = ['<', '<=', '=', '!=', '>', '>=', 'in', 'not_in'] as const;
-const FIELD_VALUES = Object.values(FIELDS) as [string, ...string[]];
+export const OPERATORS = ['<', '<=', '=', '!=', '>', '>=', 'in', 'not_in'] as const;
+export const FIELD_VALUES = Object.values(FIELDS) as [string, ...string[]];
+
+/** One rule proposal in the engine's field vocabulary; shared with any other model-backed interpreter. */
+export const RuleItem = z.object({
+  field: z.enum(FIELD_VALUES),
+  operator: z.enum(OPERATORS),
+  value_number: z.number().nullable(),
+  value_text: z.string().nullable(),
+  value_list: z.array(z.string()).nullable(),
+  currency: z.enum(['CHF', 'EUR', 'GBP', 'USD']).nullable(),
+  scope: z.enum(['purchase', 'period']).nullable(),
+  period_days: z.number().int().nullable(),
+  source_phrase: z.string(),
+  explanation: z.string(),
+});
+export type RuleItemT = z.infer<typeof RuleItem>;
 
 const Suggestion = z.object({
-  add_rules: z.array(z.object({
-    field: z.enum(FIELD_VALUES),
-    operator: z.enum(OPERATORS),
-    value_number: z.number().nullable(),
-    value_text: z.string().nullable(),
-    value_list: z.array(z.string()).nullable(),
-    currency: z.enum(['CHF', 'EUR', 'GBP', 'USD']).nullable(),
-    scope: z.enum(['purchase', 'period']).nullable(),
-    period_days: z.number().int().nullable(),
-    source_phrase: z.string(),
-    explanation: z.string(),
-  })),
+  add_rules: z.array(RuleItem),
   open_questions: z.array(z.string()),
 });
 type SuggestionT = z.infer<typeof Suggestion>;

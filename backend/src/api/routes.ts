@@ -12,7 +12,8 @@ import { workerState } from '../remote/worker.ts';
 import { fetchEvents, fetchReferenceData, getRemoteMandate, listPendingTransactions, platform, resetTeam, syncPlatform } from '../remote/platform.ts';
 import { describeRule } from '../policy/compiler.ts';
 import { llmConfig } from '../policy/llm.ts';
-import { interpretForMandate, sandboxOptions, tryToBuy } from '../services/sandbox.ts';
+import { openaiConfig } from '../policy/openai-compiler.ts';
+import { interpretForMandateSmart, sandboxOptions, tryToBuy } from '../services/sandbox.ts';
 
 function fail(reply: FastifyReply, e: unknown) {
   if (e instanceof PolicyError) return reply.code(e.status).send({ error: e.message });
@@ -26,6 +27,7 @@ export async function routes(app: FastifyInstance) {
 
   app.get('/api/health', async () => ({
     ok: true, engine: config.engineVersion, pack: packReport(), live: liveEnabled(), worker: workerState, platform, policy_llm: { enabled: llmConfig.enabled, model: llmConfig.model },
+    openai_interpreter: { enabled: openaiConfig.enabled, model: openaiConfig.model },
     data: Object.fromEntries(['customers', 'cards', 'merchants', 'items', 'authorization_history', 'purchase_attempts']
       .map((t) => [t, (db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n])),
   }));
@@ -122,7 +124,7 @@ export async function routes(app: FastifyInstance) {
     try { return sandboxOptions(req.query.mandate_id); } catch (e) { return fail(reply, e); }
   });
   app.post<{ Body: { mandate_id: string; text: string } }>('/api/shop/interpret', async (req, reply) => {
-    try { return interpretForMandate(req.body?.mandate_id, req.body?.text); } catch (e) { return fail(reply, e); }
+    try { return await interpretForMandateSmart(req.body?.mandate_id, req.body?.text); } catch (e) { return fail(reply, e); }
   });
   app.post<{ Body: { mandate_id: string; offer: any } }>('/api/shop/buy', async (req, reply) => {
     if (!req.body?.offer) return reply.code(400).send({ error: 'offer is required' });

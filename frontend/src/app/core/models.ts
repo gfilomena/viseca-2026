@@ -104,7 +104,7 @@ export interface PlatformState {
   local_pack_version: string | null; remote_pack_version: string | null; pack_match: boolean | null; error: string | null;
 }
 
-export interface Health { ok: boolean; engine: string; live: boolean; pack: PackReport | null; platform?: PlatformState; policy_llm?: { enabled: boolean; model: string }; worker: { running: boolean; lastError: string | null; handled: number }; data: Record<string, number> }
+export interface Health { ok: boolean; engine: string; live: boolean; pack: PackReport | null; platform?: PlatformState; policy_llm?: { enabled: boolean; model: string }; openai_interpreter?: { enabled: boolean; model: string }; worker: { running: boolean; lastError: string | null; handled: number }; data: Record<string, number> }
 
 export interface CardProfile {
   card: Record<string, string | number>;

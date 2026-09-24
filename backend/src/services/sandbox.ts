@@ -3,6 +3,7 @@ import { getDb } from '../db/db.ts';
 import type { AuthorizationEvent, EventMandate } from '../domain/types.ts';
 import { roundHalfEven } from '../domain/money.ts';
 import { currencyFor, interpretRequest, shopOptions, type InterpretedRequest, type PurchaseOffer, type ShopOptions } from '../agent/shopping-agent.ts';
+import { interpretRequestOpenAI, openaiInterpreterConfig } from '../agent/openai-interpreter.ts';
 import { fxRates } from './catalog.ts';
 import { getMandate, PolicyError, type Mandate } from './mandates.ts';
 import { getRun, insertRun, withDeliveryContext, type Run } from './runs.ts';
@@ -29,9 +30,26 @@ export function sandboxOptions(mandateId: string): ShopOptions {
   return shopOptions(getDb(), activeMandateWithCard(mandateId).card_id);
 }
 
+/** Deterministic path: used directly by tests to stay fast and network-free. */
 export function interpretForMandate(mandateId: string, text: string): InterpretedRequest {
   if (!text?.trim()) throw new PolicyError('Tell the agent what to buy.');
   return interpretRequest(getDb(), activeMandateWithCard(mandateId).card_id, text.trim());
+}
+
+/**
+ * Real API path: OpenAI is the primary interpreter when OPENAI_API_KEY is set (same
+ * fallback-on-failure contract as the wallet-policy compiler in mandates.ts).
+ */
+export async function interpretForMandateSmart(mandateId: string, text: string): Promise<InterpretedRequest> {
+  if (!text?.trim()) throw new PolicyError('Tell the agent what to buy.');
+  const cardId = activeMandateWithCard(mandateId).card_id;
+  const db = getDb();
+  const trimmed = text.trim();
+  if (openaiInterpreterConfig.enabled) {
+    const out = await interpretRequestOpenAI(trimmed, shopOptions(db, cardId));
+    if (out) return out;
+  }
+  return interpretRequest(db, cardId, trimmed);
 }
 
 function sandboxRun(m: Mandate & { card_id: string }, snapshot: EventMandate): Run {
