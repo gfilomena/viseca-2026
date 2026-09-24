@@ -57,3 +57,6 @@ tr.clickable { cursor: pointer; }
 tr.clickable td { background: #fffaf0; }
 tr.clickable:hover td { background: var(--stepup-soft); }
 .decide-hint { display: block; margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--stepup); }
+
+.shop-for { min-width: 280px; }
+.shop-for select { font-weight: 600; }

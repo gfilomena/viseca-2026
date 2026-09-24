@@ -50,6 +50,7 @@ export class ShopPage {
   protected readonly checkIcon = CHECK_ICON;
 
   protected mandates = signal<Mandate[]>([]);
+  protected people = signal<{ customer_id: string; persona_name: string; home_region: string }[]>([]);
   protected decisions = signal<Record<string, DecisionRow>>({});
   protected all = signal<DecisionRow[]>([]);
   protected filter = signal<Filter>('all');
@@ -70,6 +71,13 @@ export class ShopPage {
     }
     return [...byCustomer.values()].sort((a, b) => a.persona_name.localeCompare(b.persona_name));
   });
+  /** Everyone in the data pack, flagged with whether they have an active wallet policy. */
+  protected users = computed(() => {
+    const withPolicy = new Set(this.customers().map((c) => c.customer_id));
+    return this.people().map((p) => ({ ...p, hasPolicy: withPolicy.has(p.customer_id) }))
+      .sort((a, b) => Number(b.hasPolicy) - Number(a.hasPolicy) || a.persona_name.localeCompare(b.persona_name));
+  });
+  protected selectedUser = computed(() => this.users().find((u) => u.customer_id === this.chat.customerId()) ?? null);
   protected customer = computed(() => this.customers().find((c) => c.customer_id === this.chat.customerId()) ?? null);
   protected mandate = computed(() => this.customer()?.policy ?? null);
   protected rows = computed(() => {
@@ -85,6 +93,7 @@ export class ShopPage {
     const timer = setInterval(() => this.now.set(Date.now()), 1000);
     inject(DestroyRef).onDestroy(() => clearInterval(timer));
 
+    this.api.customers().then((c) => this.people.set(c)).catch(() => {});
     effect(() => {
       this.live.version();
       this.refresh();
@@ -101,7 +110,7 @@ export class ShopPage {
       const [mandates, all] = await Promise.all([this.api.mandates(), this.api.decisions()]);
       this.mandates.set(mandates);
       this.all.set(all);
-      if (!this.customers().some((c) => c.customer_id === this.chat.customerId())) this.chat.customerId.set(this.customers()[0]?.customer_id ?? null);
+      if (!this.chat.customerId()) this.chat.customerId.set(this.customers()[0]?.customer_id ?? null);
       // Refresh decisions shown in the chat (e.g. resolved elsewhere or expired).
       const map: Record<string, DecisionRow> = {};
       for (const r of all) map[r.authorization_id] = r;
@@ -120,8 +129,8 @@ export class ShopPage {
 
   protected selectCustomer(id: string) {
     this.chat.customerId.set(id);
-    const c = this.customer();
-    if (c) this.chat.push({ kind: 'bot', text: `Shopping for ${c.persona_name}.` });
+    const u = this.selectedUser();
+    if (u) this.chat.push({ kind: 'bot', text: u.hasPolicy ? `Shopping for ${u.persona_name}.` : `${u.persona_name} has no active wallet policy, so the agent cannot buy anything yet.` });
   }
 
   protected async send(box?: HTMLInputElement) {
