@@ -1,11 +1,11 @@
 import { Component, inject, signal } from '@angular/core';
-import { DecimalPipe, KeyValuePipe } from '@angular/common';
+import { DatePipe, DecimalPipe, KeyValuePipe } from '@angular/common';
 import { ApiService, errorText } from '../../core/api.service';
 import type { CardProfile, Health, Scenario } from '../../core/models';
 
 @Component({
   selector: 'app-data-page',
-  imports: [DecimalPipe, KeyValuePipe],
+  imports: [DatePipe, DecimalPipe, KeyValuePipe],
   templateUrl: './data.page.html',
   styleUrl: './data.page.scss',
 })

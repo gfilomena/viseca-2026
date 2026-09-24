@@ -3,6 +3,7 @@ import { chf, roundHalfEven } from '../domain/money.ts';
 import { FIELDS, describeRule, type PolicyIntents } from '../policy/compiler.ts';
 import type { CardProfile } from './profile.ts';
 import { detectInjection, extractFacts, isLookalike, type InjectionFinding } from './untrusted.ts';
+import { parsePreferences, preferenceConflicts } from './preferences.ts';
 
 /** An earlier decision in the same run, used for rolling limits, duplicates and familiarity. */
 export interface PriorDecision {
@@ -265,6 +266,68 @@ export function evaluate(input: EngineInput): EngineResult {
     const unitChf = roundHalfEven(l.unit_price * (fx[l.currency] ?? 1));
     if (unitChf > c.max * 1.1) {
       checks.push({ id: `price:${l.line_no}`, label: 'Price plausibility', status: 'info', detail: `“${l.item_name}” at ${chf(unitChf)} is above the usual range (${chf(c.min)}–${chf(c.max)}).` });
+    }
+  }
+
+  // ---- Card, account and delegation (issuer reference data) -----------------
+  {
+    const fails: string[] = [];
+    const notes: string[] = [];
+    const fail = (reason: string, text: string) => { reasons.add(reason); fails.push(text); };
+    const day = a.timestamp.slice(0, 10);
+    const c = profile.card;
+    if (c) {
+      if (c.status !== 'active') fail('card_inactive', `the card is ${c.status}`);
+      if (c.expires_on && day >= c.expires_on) fail('card_expired', `the card expired on ${c.expires_on}`);
+      if (!c.online_enabled && a.channel !== 'in_store' && a.channel !== 'atm') fail('card_online_disabled', 'online payments are switched off for this card');
+      if (!c.international_enabled && m.merchant_country !== 'CH') fail('card_international_disabled', `payments abroad are switched off, and the shop is in ${m.merchant_country}`);
+      notes.push(`card ${c.status}, valid until ${c.expires_on ?? '?'}, online ${c.online_enabled ? 'on' : 'off'}, abroad ${c.international_enabled ? 'on' : 'off'}`);
+    } else {
+      notes.push('card not found in reference data');
+    }
+    const acc = profile.account;
+    if (acc) {
+      if (acc.status !== 'active') fail('account_inactive', `the account is ${acc.status}`);
+      if (acc.per_transaction_limit_chf != null && a.billing_amount_chf > acc.per_transaction_limit_chf) {
+        fail('issuer_transaction_limit', `${chf(a.billing_amount_chf)} is above the account's ${chf(acc.per_transaction_limit_chf)} per-transaction limit`);
+      }
+      if (acc.monthly_limit_chf != null) {
+        const month = a.timestamp.slice(0, 7);
+        const used = roundHalfEven((profile.monthlySpend.get(month) ?? 0) +
+          approvedPrior.filter((p) => p.sim_timestamp.startsWith(month)).reduce((sum, p) => sum + p.billing_amount_chf, 0));
+        if (used + a.billing_amount_chf > acc.monthly_limit_chf) {
+          fail('issuer_monthly_limit', `${chf(used)} already used this month + ${chf(a.billing_amount_chf)} exceeds the account's ${chf(acc.monthly_limit_chf)} monthly limit`);
+        }
+        notes.push(`account limits ${chf(acc.per_transaction_limit_chf ?? 0)} per payment, ${chf(acc.monthly_limit_chf)} per month (${chf(used)} used in ${month})`);
+      }
+    }
+    if (profile.authorities.length) {
+      const t = Date.parse(a.timestamp);
+      const covering = profile.authorities.filter((x) => Date.parse(x.valid_from) <= t && t <= Date.parse(x.valid_until));
+      if (!covering.length) fail('authority_outside_validity', `the agent's delegation for this card is not valid on ${day}`);
+      else notes.push(`delegation ${covering[0].authority_id} valid until ${covering[0].valid_until.slice(0, 10)}`);
+    }
+    checks.push({
+      id: 'issuer', label: 'Card, account and delegation',
+      status: fails.length ? 'fail' : 'pass',
+      detail: fails.length ? `${fails.join('; ')}.` : `OK: ${notes.join('; ')}.`,
+    });
+  }
+
+  // ---- Customer profile preferences (soft) ------------------------------------
+  {
+    const prefs = parsePreferences(profile.customer?.shopping_preferences);
+    const requestedLines = a.items.filter(isRequested);
+    const returnsKnown = a.order_returnable === 'false' || a.order_returnable === 'not_applicable' ||
+      facts.some((f) => isRequested(f.line) && f.facts.returnDays != null && !f.facts.returnUnstated);
+    const conflicts = preferenceConflicts(prefs, { lines: a.items, isRequested, requestedLines, returnsKnown, fulfillment: a.fulfillment_method });
+    if (conflicts.length) {
+      reasons.add('customer_preference_conflict');
+      const text = conflicts.join('; ');
+      checks.push({
+        id: 'preferences', label: 'Your stated preferences', status: 'uncertain',
+        detail: `${text.charAt(0).toUpperCase()}${text.slice(1)}. This is not part of your policy, so we ask rather than decline.`,
+      });
     }
   }
 

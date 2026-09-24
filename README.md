@@ -23,6 +23,12 @@ The database (`backend/var/leash.db`) is built from every CSV in [`data/`](data/
 (`npm run seed` to rebuild). Reference tables mirror the CSVs; `mandates`, `runs` and `decisions`
 hold application state.
 
+Before loading, the pack is verified against its own contracts (`backend/src/db/verify.ts`):
+`metadata.json` against `data_pack.schema.json`, SHA-256 and row counts, CSV headers, keys and
+foreign keys (`x-csv-contracts`), the history column contract (types, enums, nullability, ordering,
+refund links), the currency formula and cart totals. Structural problems stop the seed; a changed
+hash is only a warning. The report is shown on the *Customer data* page.
+
 ## Run it
 
 ```bash
@@ -42,10 +48,17 @@ and a long-polling worker answers `/v1/decision-requests/next` within the 8-seco
 2. **Built-in protections**, independent of wording: lookalike sellers (→ decline), duplicates of an
    approved order within 24 h (→ decline), prompt-injection in shop text, split orders around a
    per-order limit, re-quotes of open orders, amount/FX consistency.
-3. **Session signals** from the card's history: new device, bursts (`recent_attempt_count_10m ≥ 2`),
+3. **Card, account and delegation** from the bank's reference data: card status and expiry,
+   online/abroad switches, the account's per-payment and monthly limits (monthly spend from the
+   history of all the account's cards plus this run), and the delegation window in
+   `scenario_authorities.csv` — any failure → `decline`.
+4. **Customer preferences** from `customers.csv` (e.g. "avoids gift vouchers", "no marketplace
+   add-ons", "clear return terms"): not part of the confirmed policy, so a conflict only makes the
+   purchase uncertain — never a decline on its own.
+5. **Session signals** from the card's history: new device, bursts (`recent_attempt_count_10m ≥ 2`),
    night-time, first-time country, unusual amount. Escalated when the instruction asks to watch for
    "someone other than me".
-4. Anything **uncertain** (missing return terms, no size stated, manipulated text, risky session)
+6. Anything **uncertain** (missing return terms, no size stated, manipulated text, risky session)
    follows the customer's `uncertainty_policy`: `ask` → `step_up`, or `decline` / `approve`.
 
 The engine is deterministic (sub-millisecond per decision, no model in the decision path), so it stays

@@ -1,11 +1,12 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import { getDb } from '../db/db.ts';
+import { getDb, packReport } from '../db/db.ts';
 import { config, liveEnabled } from '../config.ts';
 import { bus, type BusMessage } from '../services/bus.ts';
 import { createDraft, editDraft, confirmDraft, tighten, revoke, getMandate, listMandates, PolicyError } from '../services/mandates.ts';
 import { listRuns, getRun, startRun, resolveStepUp, cascadeRevocation } from '../services/runs.ts';
 import { approvalImpact, getDecision, listDecisions } from '../services/decisions.ts';
 import { getCardProfile } from '../engine/profile.ts';
+import { parsePreferences } from '../engine/preferences.ts';
 import { RemoteError, api } from '../remote/client.ts';
 import { workerState } from '../remote/worker.ts';
 import { describeRule } from '../policy/compiler.ts';
@@ -21,7 +22,7 @@ export async function routes(app: FastifyInstance) {
   const db = getDb();
 
   app.get('/api/health', async () => ({
-    ok: true, engine: config.engineVersion, live: liveEnabled(), worker: workerState,
+    ok: true, engine: config.engineVersion, pack: packReport(), live: liveEnabled(), worker: workerState,
     data: Object.fromEntries(['customers', 'cards', 'merchants', 'items', 'authorization_history', 'purchase_attempts']
       .map((t) => [t, (db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n])),
   }));
@@ -46,7 +47,10 @@ export async function routes(app: FastifyInstance) {
     const p = getCardProfile(db, req.params.id);
     const merchants = [...p.merchantCounts.entries()].sort((x, y) => y[1] - x[1]).slice(0, 15)
       .map(([id, n]) => ({ merchant_id: id, merchant_name: p.merchantNames.get(id), approved_purchases: n }));
-    return { card, merchants, devices: Object.fromEntries(p.deviceCounts), countries: [...p.countries], amount_p95_chf: p.amountP95, purchases: p.purchaseCount };
+    return {
+      card, merchants, devices: Object.fromEntries(p.deviceCounts), countries: [...p.countries], amount_p95_chf: p.amountP95, purchases: p.purchaseCount,
+      authorities: p.authorities, monthly_spend: Object.fromEntries(p.monthlySpend), preferences: parsePreferences(p.customer?.shopping_preferences).map((x) => ({ phrase: x.phrase, kind: x.kind, type: x.test.type })),
+    };
   });
 
   // --- Wallet policy (mandates) ---------------------------------------------

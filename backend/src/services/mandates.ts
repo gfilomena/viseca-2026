@@ -5,6 +5,7 @@ import type { HardRule, UncertaintyPolicy } from '../domain/types.ts';
 import { compileInstruction, describeRule, type RuleExplanation } from '../policy/compiler.ts';
 import { api } from '../remote/client.ts';
 import { catalogueItems } from './catalog.ts';
+import { parsePreferences } from '../engine/preferences.ts';
 import { publish } from './bus.ts';
 
 export interface Mandate {
@@ -70,6 +71,13 @@ export function createDraft(instruction: string, scenarioId: string | null = nul
   const card = scenarioId
     ? (getDb().prepare('SELECT a.card_id FROM purchase_attempts p JOIN scenario_authorities a ON a.authority_id = p.authority_id WHERE p.scenario_id = ? LIMIT 1').get(scenarioId) as { card_id: string } | undefined)?.card_id ?? null
     : null;
+  const prefs = card
+    ? (getDb().prepare('SELECT cu.shopping_preferences AS p FROM cards c JOIN accounts a ON a.account_id = c.account_id JOIN customers cu ON cu.customer_id = a.customer_id WHERE c.card_id = ?').get(card) as { p: string } | undefined)?.p
+    : undefined;
+  if (prefs && parsePreferences(prefs).length) {
+    d.guidance.push(`Your profile preferences (“${prefs}”) are soft signals: a basket that goes against them is treated as uncertain, never declined on that basis alone.`);
+  }
+  d.guidance.push('Card, account and delegation limits from your bank (card status and expiry, online/abroad switches, per-payment and monthly account limits, delegation window) always apply.');
   const m: Mandate = {
     id: `LM-${randomUUID().slice(0, 8)}`, remote_draft_id: null, remote_mandate_id: null, status: 'draft',
     scenario_id: scenarioId, card_id: card, instruction: d.instruction, hard_rules: d.hard_rules,

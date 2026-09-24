@@ -22,3 +22,8 @@ export function isSeeded(): boolean {
 }
 
 export const json = <T>(s: unknown): T => JSON.parse(String(s)) as T;
+
+export function packReport(): unknown {
+  const row = getDb().prepare("SELECT value FROM app_meta WHERE key = 'pack_verification'").get() as { value: string } | undefined;
+  return row ? JSON.parse(row.value) : null;
+}

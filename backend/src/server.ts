@@ -1,14 +1,14 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { config, liveEnabled } from './config.ts';
-import { getDb, isSeeded } from './db/db.ts';
+import { getDb, isSeeded, packReport } from './db/db.ts';
 import { seed } from './db/seed.ts';
 import { routes } from './api/routes.ts';
 import { startWorker } from './remote/worker.ts';
 import { expireStalePending } from './services/runs.ts';
 
 getDb();
-if (!isSeeded()) console.log('Seeding database from data pack…', seed());
+if (!isSeeded() || !packReport()) console.log('Seeding database from data pack…', seed());
 
 const app = Fastify({ logger: { level: 'warn' } });
 await app.register(cors, { origin: true, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] });

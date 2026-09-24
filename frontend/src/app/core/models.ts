@@ -90,7 +90,9 @@ export interface DecisionRow {
   event?: { authorization: { items: CartLine[]; merchant: { merchant_name: string; merchant_city: string; merchant_country: string; merchant_category: string; merchant_mcc: string }; customer_device_id: string; delivery_fee: number; currency: string; amount: number; order_returnable: string; fulfillment_method: string; recent_attempt_count_10m: number } };
 }
 
-export interface Health { ok: boolean; engine: string; live: boolean; worker: { running: boolean; lastError: string | null; handled: number }; data: Record<string, number> }
+export interface PackReport { ok: boolean; verified_at: string; pack_version: string | null; errors: string[]; warnings: string[]; checks: { name: string; ok: boolean; detail: string }[] }
+
+export interface Health { ok: boolean; engine: string; live: boolean; pack: PackReport | null; worker: { running: boolean; lastError: string | null; handled: number }; data: Record<string, number> }
 
 export interface CardProfile {
   card: Record<string, string | number>;
@@ -99,4 +101,7 @@ export interface CardProfile {
   countries: string[];
   amount_p95_chf: number;
   purchases: number;
+  authorities: { authority_id: string; valid_from: string; valid_until: string; initial_status: string }[];
+  monthly_spend: Record<string, number>;
+  preferences: { phrase: string; kind: 'avoid' | 'expect'; type: string }[];
 }

@@ -143,3 +143,8 @@ CREATE TABLE IF NOT EXISTS decisions (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_decisions_run ON decisions(run_id, sim_timestamp);
+
+CREATE TABLE IF NOT EXISTS app_meta (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL                -- JSON
+);

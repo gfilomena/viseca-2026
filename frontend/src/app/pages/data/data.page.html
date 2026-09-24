@@ -15,6 +15,22 @@
     </div>
   }
 
+  @if (health()?.pack; as pack) {
+    <article class="card stack">
+      <header>
+        <h2>Data pack verification</h2>
+        <span class="badge" [class.active]="pack.ok" [class.revoked]="!pack.ok">{{ pack.ok ? 'Verified' : 'Problems found' }} · {{ pack.pack_version }}</span>
+      </header>
+      <p class="muted">Checked against metadata.json and the schemas in data/schemas before loading ({{ pack.verified_at | date: 'medium' }}).</p>
+      <ul class="checks">
+        @for (c of pack.checks; track c.name) {
+          <li [class.bad]="!c.ok"><span class="badge" [class.pass]="c.ok" [class.fail]="!c.ok">{{ c.ok ? '✓' : '✕' }}</span> <strong>{{ c.name }}</strong> <span class="muted">{{ c.detail }}</span></li>
+        }
+      </ul>
+      @for (w of pack.warnings; track $index) { <div class="callout warn">{{ w }}</div> }
+    </article>
+  }
+
   <div class="row tabs">
     @for (s of scenarios(); track s.scenario_id) {
       <button class="btn sm" [class.primary]="s.scenario_id === scenarioId()" (click)="pick(s)">{{ s.scenario_id }} · {{ s.persona_name }}</button>
@@ -32,6 +48,22 @@
           <span class="chip">{{ p.purchases }} approved purchases</span>
           <span class="chip">p95 CHF {{ p.amount_p95_chf | number: '1.2-2' }}</span>
         </div>
+        <h3>Bank limits and delegation</h3>
+        <div class="row">
+          <span class="chip">{{ p.card['account_type'] }} account</span>
+          <span class="chip">CHF {{ p.card['per_transaction_limit_chf'] | number: '1.0-0' }} per payment</span>
+          <span class="chip">CHF {{ p.card['monthly_limit_chf'] | number: '1.0-0' }} per month</span>
+          <span class="chip">card {{ p.card['status'] }} until {{ p.card['expires_on'] }}</span>
+          <span class="chip">online {{ p.card['online_enabled'] === 'true' ? 'on' : 'off' }}</span>
+          <span class="chip">abroad {{ p.card['international_enabled'] === 'true' ? 'on' : 'off' }}</span>
+          @for (a of p.authorities; track a.authority_id) {
+            <span class="chip">{{ a.authority_id }} {{ a.valid_from.slice(0, 10) }} → {{ a.valid_until.slice(0, 10) }}</span>
+          }
+        </div>
+        <h3>Stated preferences <span class="faint">(soft signals: ask, never decline)</span></h3>
+        @if (p.preferences.length) {
+          <div class="row">@for (pr of p.preferences; track $index) { <span class="chip">{{ pr.kind === 'avoid' ? 'avoid' : 'expects' }}: {{ pr.phrase }}</span> }</div>
+        } @else { <p class="faint">No preference we can check automatically.</p> }
         <h3>Familiar shops</h3>
         <table>
           <thead><tr><th>Shop</th><th>ID</th><th class="num">Approved</th></tr></thead>
