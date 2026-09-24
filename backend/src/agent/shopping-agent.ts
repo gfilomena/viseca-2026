@@ -6,6 +6,12 @@ import { getCardProfile } from '../engine/profile.ts';
 import { isLookalike } from '../engine/untrusted.ts';
 import { fxRates } from '../services/catalog.ts';
 
+/** Flat delivery fee the simulated agent assumes for groceries; not in the data pack, so kept as one named constant. */
+export const GROCERY_DELIVERY_FEE_CHF = 6;
+export function estimateDeliveryFee(itemCategory: string | null): number {
+  return itemCategory === 'groceries' ? GROCERY_DELIVERY_FEE_CHF : 0;
+}
+
 /**
  * A deliberately simple *simulated* shopping agent for the sandbox chat.
  *
@@ -268,7 +274,7 @@ export function interpretRequest(db: DatabaseSync, cardId: string, text: string)
       customer_device_id: device,
       item_details: details,
       order_returnable: digital ? 'not_applicable' : 'true',
-      delivery_fee: itemCategory === 'groceries' ? 6 : 0,
+      delivery_fee: estimateDeliveryFee(itemCategory),
       fulfillment_method: digital ? 'digital' : 'delivery',
     },
     item: catalogueItem, merchant, item_candidates: candidates, notes, questions,

@@ -233,6 +233,7 @@ export function evaluate(input: EngineInput): EngineResult {
   }
 
   const sig = itemSignature(event);
+  // Same order counts as a duplicate within 5% (or CHF 1, whichever is larger, for small baskets) and within 24h.
   const dup = prior.find((p) => p.merchant_id === m.merchant_id && p.item_signature === sig &&
     (p.status === 'approved' || p.status === 'pending') &&
     Math.abs(p.billing_amount_chf - a.billing_amount_chf) <= Math.max(1, 0.05 * a.billing_amount_chf) &&
@@ -254,6 +255,8 @@ export function evaluate(input: EngineInput): EngineResult {
   }
 
   if (purchaseLimitChf !== undefined) {
+    // Split-order check only looks at the same merchant within the last hour — a wider window would
+    // flag ordinary repeat shopping, not an attempt to dodge the per-order limit.
     const recent = prior.filter((p) => p.merchant_id === m.merchant_id && (p.status === 'approved' || p.status === 'pending') &&
       nowMs - Date.parse(p.sim_timestamp) <= HOUR && nowMs >= Date.parse(p.sim_timestamp));
     const combined = roundHalfEven(recent.reduce((s, p) => s + p.billing_amount_chf, 0) + a.billing_amount_chf);
@@ -363,6 +366,7 @@ export function evaluate(input: EngineInput): EngineResult {
   const hour = zurichHour(a.timestamp);
   if (hour < 6) cautions.push(`unusual hour (${hour}:00 Swiss time)`);
   if (!profile.countries.has(m.merchant_country)) cautions.push(`first purchase from a shop in ${m.merchant_country}`);
+  // 1.5x the card's own 95th-percentile spend — relative to that customer's history, not a fixed CHF figure.
   if (profile.amountP95 > 0 && a.billing_amount_chf > profile.amountP95 * 1.5) cautions.push(`amount well above this card's usual (${chf(profile.amountP95)} p95)`);
   if (cautions.length) {
     const escalate = cautions.length >= 2 || (intents.session_strict && cautions.length >= 1 && !knownDevice);
