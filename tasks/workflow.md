@@ -19,3 +19,6 @@ DEFINE ✅ · BUILD ✅ · VERIFY ✅ (36 tests; browser: no auto-open, row clic
 
 ## Minimal chat (no suggested products, read-only summary only) — feat/minimal-chat
 BUILD ✅ · VERIFY ✅ (build; browser: no suggestions, summary, decision card) · SHIP ✅ (PR + merge on fork)
+
+## Shop page: choose the customer, policy derived — feat/shop-by-user
+BUILD ✅ · VERIFY ✅ (36 tests, build, browser) · SHIP ✅ (PR + merge on fork)

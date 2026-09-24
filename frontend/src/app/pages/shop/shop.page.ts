@@ -17,7 +17,8 @@ type ChatMessage =
 @Injectable({ providedIn: 'root' })
 export class ShopChatStore {
   readonly messages = signal<ChatMessage[]>([]);
-  readonly mandateId = signal<string | null>(null);
+  /** The customer the agent shops for; their most recently confirmed policy applies. */
+  readonly customerId = signal<string | null>(null);
   private seq = 0;
   push(m: DistributiveOmit<ChatMessage, 'id'>) { this.messages.update((list) => [...list, { ...m, id: ++this.seq } as ChatMessage]); }
   update(id: number, patch: Partial<ChatMessage>) { this.messages.update((list) => list.map((m) => (m.id === id ? ({ ...m, ...patch } as ChatMessage) : m))); }
@@ -57,7 +58,20 @@ export class ShopPage {
   protected now = signal(Date.now());
 
   protected active = computed(() => this.mandates().filter((m) => m.status === 'active' && m.card_id));
-  protected mandate = computed(() => this.active().find((m) => m.id === this.chat.mandateId()) ?? null);
+  /** One entry per customer with an active policy; the newest confirmed policy is theirs. */
+  protected customers = computed(() => {
+    const byCustomer = new Map<string, { customer_id: string; persona_name: string; card_id: string; policy: Mandate; others: number }>();
+    const newestFirst = [...this.active()].sort((a, b) => (b.confirmed_at ?? '').localeCompare(a.confirmed_at ?? ''));
+    for (const m of newestFirst) {
+      const id = m.customer_id ?? m.card_id!;
+      const hit = byCustomer.get(id);
+      if (hit) hit.others++;
+      else byCustomer.set(id, { customer_id: id, persona_name: m.persona_name ?? id, card_id: m.card_id!, policy: m, others: 0 });
+    }
+    return [...byCustomer.values()].sort((a, b) => a.persona_name.localeCompare(b.persona_name));
+  });
+  protected customer = computed(() => this.customers().find((c) => c.customer_id === this.chat.customerId()) ?? null);
+  protected mandate = computed(() => this.customer()?.policy ?? null);
   protected rows = computed(() => {
     const f = this.filter();
     return this.all().filter((r) => f === 'all' || r.engine_decision === f);
@@ -87,8 +101,7 @@ export class ShopPage {
       const [mandates, all] = await Promise.all([this.api.mandates(), this.api.decisions()]);
       this.mandates.set(mandates);
       this.all.set(all);
-      const actives = mandates.filter((m) => m.status === 'active' && m.card_id);
-      if (!actives.some((m) => m.id === this.chat.mandateId())) this.chat.mandateId.set(actives[0]?.id ?? null);
+      if (!this.customers().some((c) => c.customer_id === this.chat.customerId())) this.chat.customerId.set(this.customers()[0]?.customer_id ?? null);
       // Refresh decisions shown in the chat (e.g. resolved elsewhere or expired).
       const map: Record<string, DecisionRow> = {};
       for (const r of all) map[r.authorization_id] = r;
@@ -105,10 +118,10 @@ export class ShopPage {
     } catch { /* the header shows connectivity */ }
   }
 
-  protected selectMandate(id: string) {
-    this.chat.mandateId.set(id);
-    const m = this.active().find((x) => x.id === id);
-    if (m) this.chat.push({ kind: 'bot', text: `Policy: “${m.instruction}”` });
+  protected selectCustomer(id: string) {
+    this.chat.customerId.set(id);
+    const c = this.customer();
+    if (c) this.chat.push({ kind: 'bot', text: `Shopping for ${c.persona_name}.` });
   }
 
   protected async send(box?: HTMLInputElement) {

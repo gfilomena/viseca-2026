@@ -105,29 +105,32 @@
           <button class="btn primary" type="submit" [disabled]="busy() || !input().trim()">Send</button>
         </form>
       } @else {
-        <div class="callout info">No active wallet policy yet. <a routerLink="/policy">Set one up</a> first: the agent cannot spend without it.</div>
+        <div class="callout info">No active wallet policy yet. <a routerLink="/policy">Set one up</a> first.</div>
       }
     </article>
 
     <!-- Guarding policy -->
     <aside class="card stack guard">
-      <h2>Guarded by</h2>
-      @if (active().length) {
-        <label class="field">Wallet policy
-          <select [ngModel]="chat.mandateId()" (ngModelChange)="selectMandate($event)">
-            @for (m of active(); track m.id) { <option [value]="m.id">{{ m.scenario_id ?? m.id }} · card {{ m.card_id }}</option> }
-          </select>
-        </label>
-      }
-      @if (mandate(); as m) {
-        <blockquote>“{{ m.instruction }}”</blockquote>
-        <ul class="labels">
-          @for (l of m.rule_labels ?? []; track $index) { <li>{{ l }}</li> }
-          <li>When uncertain: <strong>{{ m.uncertainty_policy === 'ask' ? 'ask me' : m.uncertainty_policy }}</strong></li>
-        </ul>
-        <p class="faint">Only you can change it: <a routerLink="/policy">Wallet policy</a>.</p>
+      <label class="field">Shopping for
+        <select [ngModel]="chat.customerId()" (ngModelChange)="selectCustomer($event)" [disabled]="!customers().length">
+          @for (c of customers(); track c.customer_id) { <option [value]="c.customer_id">{{ c.persona_name }} · card {{ c.card_id }}</option> }
+        </select>
+      </label>
+      @if (customer(); as c) {
+        <div class="stack-sm">
+          <h3>Wallet policy</h3>
+          <blockquote>“{{ c.policy.instruction }}”</blockquote>
+          <ul class="labels">
+            @for (l of c.policy.rule_labels ?? []; track $index) { <li>{{ l }}</li> }
+            <li>When uncertain: <strong>{{ c.policy.uncertainty_policy === 'ask' ? 'ask me' : c.policy.uncertainty_policy }}</strong></li>
+          </ul>
+          <p class="faint">
+            Only {{ c.persona_name }} can change it: <a routerLink="/policy">Wallet policy</a>.
+            @if (c.others) { {{ c.others }} older active {{ c.others === 1 ? 'policy is' : 'policies are' }} not used here. }
+          </p>
+        </div>
       } @else {
-        <p class="empty">No active policy.</p>
+        <p class="empty">No one has an active wallet policy yet.</p>
       }
     </aside>
   </div>

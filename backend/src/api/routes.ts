@@ -55,7 +55,13 @@ export async function routes(app: FastifyInstance) {
   });
 
   // --- Wallet policy (mandates) ---------------------------------------------
-  app.get('/api/mandates', async () => listMandates().map((m) => ({ ...m, rule_labels: m.hard_rules.map(describeRule) })));
+  // Each policy carries the customer who owns the card, so the UI can pick a person rather than an ID.
+  const ownerOf = db.prepare(`SELECT cu.customer_id, cu.persona_name FROM cards c JOIN accounts a ON a.account_id = c.account_id
+    JOIN customers cu ON cu.customer_id = a.customer_id WHERE c.card_id = ?`);
+  app.get('/api/mandates', async () => listMandates().map((m) => {
+    const owner = m.card_id ? ownerOf.get(m.card_id) as { customer_id: string; persona_name: string } | undefined : undefined;
+    return { ...m, customer_id: owner?.customer_id ?? null, persona_name: owner?.persona_name ?? null, rule_labels: m.hard_rules.map(describeRule) };
+  }));
   app.get<{ Params: { id: string } }>('/api/mandates/:id', async (req, reply) => {
     try { const m = getMandate(req.params.id); return { ...m, rule_labels: m.hard_rules.map(describeRule) }; } catch (e) { return fail(reply, e); }
   });

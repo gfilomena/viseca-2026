@@ -19,6 +19,8 @@ export interface Mandate {
   status: 'draft' | 'active' | 'revoked';
   scenario_id: string | null;
   card_id: string | null;
+  customer_id?: string | null;
+  persona_name?: string | null;
   instruction: string;
   hard_rules: HardRule[];
   rule_labels?: string[];
