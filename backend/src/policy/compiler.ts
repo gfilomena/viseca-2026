@@ -84,7 +84,7 @@ const STOPWORDS = new Set(
     .split(' '),
 );
 
-const tokens = (s: string) =>
+export const tokens = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/)
     .filter(Boolean)
     .map((t) => (t.length > 3 && t.endsWith('s') && !t.endsWith('ss') ? t.slice(0, -1) : t));
@@ -105,7 +105,7 @@ function matchCatalogueItems(instruction: string, catalogue: CatalogueItem[]): C
   return best;
 }
 
-function parseAmount(clause: string): { value: number; currency: Currency } | undefined {
+export function parseAmount(clause: string): { value: number; currency: Currency } | undefined {
   const m = clause.match(/\b(CHF|EUR|GBP|USD|Fr\.?)\s?(\d+(?:[.,]\d{1,2})?)/i) ??
     clause.match(/(\d+(?:[.,]\d{1,2})?)\s?(CHF|EUR|GBP|USD|francs?)\b/i);
   if (!m) return undefined;

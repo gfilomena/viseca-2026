@@ -68,9 +68,14 @@ export function priorDecisions(runId: string, beforeSim: string, excludeId: stri
 export function decide(event: AuthorizationEvent, runId: string): EngineResult {
   try {
     const a = event.authorization;
+    const mode = (getDb().prepare('SELECT mode FROM runs WHERE id = ?').get(runId) as { mode: string } | undefined)?.mode;
+    const base = getCardProfile(getDb(), a.card_id);
     return evaluate({
       event,
-      profile: getCardProfile(getDb(), a.card_id),
+      // Sandbox purchases are delegated by the confirmed wallet policy itself; the scenario
+      // fixture authorities only describe the replay windows of the public scenarios.
+      profile: mode === 'sandbox' ? { ...base, authorities: [] } : base,
+      delegation: mode === 'sandbox' ? 'wallet policy (sandbox)' : undefined,
       prior: priorDecisions(runId, a.timestamp, a.authorization_id),
       fx: fxRates(),
       catalogue: cataloguePrices(),

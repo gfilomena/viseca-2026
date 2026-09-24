@@ -9,7 +9,7 @@ import { getMandate, PolicyError } from './mandates.ts';
 
 export interface Run {
   id: string;
-  mode: 'offline' | 'live';
+  mode: 'offline' | 'live' | 'sandbox';
   scenario_id: string;
   mandate_id: string;
   mandate_snapshot: EventMandate;
@@ -38,6 +38,8 @@ function insertRun(run: Run) {
     .run(run.id, run.mode, run.scenario_id, run.mandate_id, JSON.stringify(run.mandate_snapshot), run.remote_run_id, run.status, run.created_at, run.error);
   publish({ type: 'run', run_id: run.id });
 }
+
+export { insertRun };
 
 export function setRunStatus(id: string, status: Run['status'], error: string | null = null) {
   getDb().prepare('UPDATE runs SET status = ?, error = ? WHERE id = ?').run(status, error, id);
@@ -122,7 +124,7 @@ function buildOfflineEvents(scenarioId: string, run: Run): AuthorizationEvent[] 
   });
 }
 
-function withDeliveryContext(e: AuthorizationEvent, runId: string): AuthorizationEvent {
+export function withDeliveryContext(e: AuthorizationEvent, runId: string): AuthorizationEvent {
   const now = new Date();
   const a = e.authorization;
   const t = Date.parse(a.timestamp);
@@ -216,7 +218,7 @@ export async function resolveStepUp(authorizationId: string, decision: 'approve'
 /** Offline human window: an unanswered step-up is never approved by default. */
 export function expireStalePending() {
   const rows = getDb().prepare(`SELECT d.authorization_id FROM decisions d JOIN runs r ON r.id = d.run_id
-    WHERE d.status = 'pending' AND r.mode = 'offline' AND d.human_deadline_at < ?`).all(new Date().toISOString()) as { authorization_id: string }[];
+    WHERE d.status = 'pending' AND r.mode != 'live' AND d.human_deadline_at < ?`).all(new Date().toISOString()) as { authorization_id: string }[];
   for (const r of rows) setResolution(r.authorization_id, 'expired', 'timeout', 'No answer from the customer in time; the purchase was not made.');
 }
 
@@ -277,7 +279,7 @@ export async function reconcileLive(opts: { only?: string; force?: boolean; list
 /** Revoking a policy withdraws consent for anything still waiting in offline runs. */
 export function cascadeRevocation(mandateId: string) {
   const rows = getDb().prepare(`SELECT d.authorization_id FROM decisions d JOIN runs r ON r.id = d.run_id
-    WHERE d.status = 'pending' AND r.mode = 'offline' AND r.mandate_id = ?`).all(mandateId) as { authorization_id: string }[];
+    WHERE d.status = 'pending' AND r.mode != 'live' AND r.mandate_id = ?`).all(mandateId) as { authorization_id: string }[];
   for (const r of rows) setResolution(r.authorization_id, 'declined', 'revocation', 'Declined because you revoked the wallet policy.');
 }
 

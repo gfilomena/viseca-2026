@@ -10,3 +10,6 @@ REVIEW ✅ (/code-review: 4 findings) · BUILD ✅ · VERIFY ✅ (28 tests, UI c
 
 ## Move Viseca originals to resource/, app at root — chore/resource-layout
 BUILD ✅ · VERIFY ✅ (28 tests, re-seed from resource/data verified in UI) · SHIP ✅ (PR + merge on fork)
+
+## Shop chat home page (simulated agent → wallet control) + all-transactions table — feat/shop-chat
+DEFINE ✅ (brief re-read: control independent of agent, untrusted shop text) · PLAN ✅ · BUILD ✅ · VERIFY ✅ (36 tests, UI flow in browser, mobile width) · REVIEW ⬜ · SHIP ✅ (PR + merge on fork)

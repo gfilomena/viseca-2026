@@ -1,0 +1,225 @@
+<section class="page">
+  <div class="page-head">
+    <div class="stack-sm">
+      <h1>Shop with your agent</h1>
+      <p>Tell the shopping agent what to buy. You review what it plans to do, then it tries to pay. Your wallet policy decides on its own: nothing you or the shop write here can change it.</p>
+    </div>
+  </div>
+
+  <div class="shop-layout">
+    <!-- Chat -->
+    <article class="card chat">
+      <header>
+        <h2>Agent chat</h2>
+        <button class="btn sm" (click)="newChat()" [disabled]="!chat.messages().length">New chat</button>
+      </header>
+
+      <div class="messages" #scroller aria-live="polite">
+        @if (!chat.messages().length) {
+          <div class="welcome">
+            <p><strong>Hi! What should I buy for you?</strong></p>
+            <p class="muted">Describe it like you would to a person: the product, the shop, the price.</p>
+            <div class="suggestions">
+              @for (s of suggestions; track s) {
+                <button type="button" class="chip-btn" (click)="useSuggestion(s)" [disabled]="!mandate()">{{ s }}</button>
+              }
+            </div>
+          </div>
+        }
+
+        @for (msg of chat.messages(); track msg.id) {
+          @switch (msg.kind) {
+            @case ('user') {
+              <div class="bubble user">{{ msg.text }}</div>
+            }
+            @case ('bot') {
+              <div class="bubble bot" [class.error]="msg.tone === 'error'">{{ msg.text }}</div>
+            }
+            @case ('review') {
+              @if (asReview(msg); as r) {
+                <div class="review" [class.done]="r.state !== 'open'">
+                  <div class="review-head">
+                    <strong>Proposed purchase</strong>
+                    @if (r.state === 'sent') { <span class="badge">sent to wallet control</span> }
+                    @if (r.state === 'cancelled') { <span class="badge">cancelled</span> }
+                  </div>
+
+                  @if (r.data.questions.length) {
+                    <div class="callout warn stack-sm">
+                      @for (q of r.data.questions; track $index) { <span>• {{ q }}</span> }
+                    </div>
+                  }
+
+                  <fieldset [disabled]="r.state !== 'open'">
+                    <div class="form-grid">
+                      <label class="field wide">Product
+                        <select [(ngModel)]="r.offer.item_id">
+                          @for (it of options()?.items ?? []; track it.item_id) {
+                            <option [value]="it.item_id">{{ it.item_name }} · {{ it.item_category }}</option>
+                          }
+                        </select>
+                      </label>
+                      <label class="field">Quantity
+                        <input type="number" min="1" max="99" [(ngModel)]="r.offer.quantity" />
+                      </label>
+                      <label class="field">Price per unit (CHF)
+                        <input type="number" min="0.05" step="0.05" [(ngModel)]="r.offer.unit_price_chf" />
+                      </label>
+                      <label class="field wide">Shop
+                        <select [(ngModel)]="r.offer.merchant_id">
+                          @for (m of options()?.merchants ?? []; track m.merchant_id) {
+                            <option [value]="m.merchant_id">{{ m.merchant_name }} · {{ m.merchant_category }} · {{ m.merchant_country }}{{ m.familiar_purchases ? ' · used ' + m.familiar_purchases + '×' : ' · never used' }}</option>
+                          }
+                        </select>
+                      </label>
+                      <label class="field">Delivery fee (CHF)
+                        <input type="number" min="0" step="0.5" [(ngModel)]="r.offer.delivery_fee_chf" />
+                      </label>
+                      <label class="field">Returns
+                        <select [(ngModel)]="r.offer.order_returnable">
+                          <option value="true">Returnable</option>
+                          <option value="false">Not returnable</option>
+                          <option value="unknown">Not stated</option>
+                          <option value="not_applicable">Not applicable</option>
+                        </select>
+                      </label>
+                      <label class="field wide">Device the agent uses
+                        <select [(ngModel)]="r.offer.customer_device_id">
+                          @for (d of options()?.devices ?? []; track d.id) { <option [value]="d.id">{{ d.label }}</option> }
+                        </select>
+                      </label>
+                      <label class="field full">Shop's product text <span class="faint">(written by the shop, untrusted: try adding an instruction to see what happens)</span>
+                        <textarea rows="2" [(ngModel)]="r.offer.item_details"></textarea>
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <ul class="notes">
+                    @for (n of r.data.notes; track $index) { <li>{{ n }}</li> }
+                  </ul>
+
+                  @if (r.state === 'open') {
+                    <div class="row">
+                      <span class="muted">Total about <strong>{{ total(r.offer) | currency: 'CHF ' }}</strong> at {{ merchantOf(r.offer.merchant_id)?.merchant_name ?? '—' }}</span>
+                      <span class="spacer"></span>
+                      <button class="btn" (click)="cancel(msg)">Cancel</button>
+                      <button class="btn primary" (click)="tryToBuy(r)" [disabled]="busy() || !r.offer.item_id || !r.offer.merchant_id">Try to buy</button>
+                    </div>
+                  }
+                </div>
+              }
+            }
+            @case ('decision') {
+              @if (asDecision(msg); as d) {
+                <div class="decision" [class]="d.engine_decision">
+                  <div class="row">
+                    <span class="badge" [class]="d.engine_decision">{{ decisionLabel[d.engine_decision] }}</span>
+                    <span class="badge" [class]="d.status">{{ statusLabel[d.status] }}@if (d.resolved_by === 'customer') { · by you }</span>
+                    <span class="spacer"></span>
+                    <strong>{{ d.billing_amount_chf | currency: 'CHF ' }}</strong>
+                  </div>
+                  <p>{{ d.customer_message }}</p>
+                  @if (important(d).length) {
+                    <ul class="checks">
+                      @for (c of important(d); track $index) {
+                        <li [class]="c.status"><span class="icon">{{ checkIcon[c.status] }}</span><div><strong>{{ c.label }}</strong> {{ c.detail }}</div></li>
+                      }
+                    </ul>
+                  }
+                  <details>
+                    <summary class="faint">All {{ d.checks.length }} checks and evidence · {{ d.latency_ms }} ms</summary>
+                    <ul class="checks">
+                      @for (c of d.checks; track $index) {
+                        <li [class]="c.status"><span class="icon">{{ checkIcon[c.status] }}</span><div><strong>{{ c.label }}</strong> {{ c.detail }}</div></li>
+                      }
+                    </ul>
+                    <ul class="notes">@for (e of d.evidence; track $index) { <li>{{ e }}</li> }</ul>
+                  </details>
+                  @if (d.status === 'pending') {
+                    @for (i of d.impact ?? []; track i.rule) {
+                      @if (i.breaches) { <div class="callout warn">Approving now would bring your {{ i.rule }} total to {{ i.total_if_approved_chf | currency: 'CHF ' }} (limit {{ i.limit_chf | currency: 'CHF ' }}).</div> }
+                    }
+                    <div class="row">
+                      <span class="faint">Your decision · {{ secondsLeft(d) }}s left</span>
+                      <span class="spacer"></span>
+                      <button class="btn decline" (click)="resolve(d.authorization_id, 'decline')">Decline</button>
+                      <button class="btn approve" (click)="resolve(d.authorization_id, 'approve')">Approve</button>
+                    </div>
+                  }
+                </div>
+              }
+            }
+          }
+        }
+        @if (busy()) { <div class="bubble bot typing">…</div> }
+      </div>
+
+      @if (mandate()) {
+        <form class="composer" (ngSubmit)="send()">
+          <input name="msg" placeholder="e.g. Buy the 27-inch monitor at PixelHarbor for CHF 289" [ngModel]="input()" (ngModelChange)="input.set($event)" autocomplete="off" aria-label="Message to the shopping agent" />
+          <button class="btn primary" type="submit" [disabled]="busy() || !input().trim()">Send</button>
+        </form>
+      } @else {
+        <div class="callout info">No active wallet policy yet. <a routerLink="/policy">Set one up</a> first: the agent cannot spend without it.</div>
+      }
+    </article>
+
+    <!-- Guarding policy -->
+    <aside class="card stack guard">
+      <h2>Guarded by</h2>
+      @if (active().length) {
+        <label class="field">Wallet policy
+          <select [ngModel]="chat.mandateId()" (ngModelChange)="selectMandate($event)">
+            @for (m of active(); track m.id) { <option [value]="m.id">{{ m.scenario_id ?? m.id }} · card {{ m.card_id }}</option> }
+          </select>
+        </label>
+      }
+      @if (mandate(); as m) {
+        <blockquote>“{{ m.instruction }}”</blockquote>
+        <ul class="labels">
+          @for (l of m.rule_labels ?? []; track $index) { <li>{{ l }}</li> }
+          <li>When uncertain: <strong>{{ m.uncertainty_policy === 'ask' ? 'ask me' : m.uncertainty_policy }}</strong></li>
+        </ul>
+        <p class="faint">The agent and the shop cannot change these checks. You can tighten or revoke them on the <a routerLink="/policy">Wallet policy</a> page; the chat uses the latest version.</p>
+      } @else {
+        <p class="empty">No active policy.</p>
+      }
+    </aside>
+  </div>
+
+  <!-- All transactions -->
+  <article class="card">
+    <header>
+      <h2>All transactions</h2>
+      <div class="segmented" role="radiogroup" aria-label="Filter by decision">
+        <button type="button" [class.on]="filter() === 'all'" (click)="filter.set('all')">All {{ counts().all }}</button>
+        <button type="button" [class.on]="filter() === 'approve'" (click)="filter.set('approve')">Approved {{ counts().approve }}</button>
+        <button type="button" [class.on]="filter() === 'decline'" (click)="filter.set('decline')">Declined {{ counts().decline }}</button>
+        <button type="button" [class.on]="filter() === 'step_up'" (click)="filter.set('step_up')">Asked you {{ counts().step_up }}</button>
+      </div>
+    </header>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>When</th><th>Source</th><th>Shop</th><th>Basket</th><th class="num">CHF</th><th>Decision</th><th>Outcome</th><th>Why</th></tr>
+        </thead>
+        <tbody>
+          @for (r of rows(); track r.authorization_id) {
+            <tr>
+              <td class="nowrap">{{ r.created_at | date: 'MMM d, HH:mm:ss' }}</td>
+              <td class="nowrap"><span class="chip">{{ source(r) }}</span></td>
+              <td>{{ r.merchant_name }}</td>
+              <td class="basket">{{ (r.items ?? []).join(', ') }}</td>
+              <td class="num">{{ r.billing_amount_chf | number: '1.2-2' }}</td>
+              <td><span class="badge" [class]="r.engine_decision">{{ decisionLabel[r.engine_decision] }}</span></td>
+              <td><span class="badge" [class]="r.status">{{ statusLabel[r.status] }}</span></td>
+              <td class="why">{{ summary(r) }}</td>
+            </tr>
+          } @empty {
+            <tr><td colspan="8" class="empty">No transactions yet. Ask the agent to buy something.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </article>
+</section>

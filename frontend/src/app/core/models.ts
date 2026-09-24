@@ -86,6 +86,8 @@ export interface DecisionRow {
   resolved_at: string | null;
   resolution_note: string | null;
   created_at: string;
+  run_mode?: 'offline' | 'live' | 'sandbox';
+  scenario_id?: string;
   impact?: { rule: string; limit_chf: number; total_if_approved_chf: number; breaches: boolean }[];
   event?: { authorization: { items: CartLine[]; merchant: { merchant_name: string; merchant_city: string; merchant_country: string; merchant_category: string; merchant_mcc: string }; customer_device_id: string; delivery_fee: number; currency: string; amount: number; order_returnable: string; fulfillment_method: string; recent_attempt_count_10m: number } };
 }
@@ -105,3 +107,32 @@ export interface CardProfile {
   monthly_spend: Record<string, number>;
   preferences: { phrase: string; kind: 'avoid' | 'expect'; type: string }[];
 }
+
+export interface OfferItem { item_id: string; item_name: string; item_category: string; typical_chf: number; min_chf: number; max_chf: number }
+export interface OfferMerchant { merchant_id: string; merchant_name: string; merchant_category: string; merchant_country: string; merchant_city: string; familiar_purchases: number }
+
+export interface PurchaseOffer {
+  request_text: string;
+  item_id: string | null;
+  quantity: number;
+  unit_price_chf: number | null;
+  budget_chf: number | null;
+  merchant_id: string | null;
+  size: string | null;
+  customer_device_id: string;
+  item_details: string;
+  order_returnable: 'true' | 'false' | 'unknown' | 'not_applicable';
+  delivery_fee_chf: number;
+  fulfillment_method: 'delivery' | 'digital' | 'pickup';
+}
+
+export interface InterpretedRequest {
+  offer: PurchaseOffer;
+  item: OfferItem | null;
+  merchant: OfferMerchant | null;
+  item_candidates: OfferItem[];
+  notes: string[];
+  questions: string[];
+}
+
+export interface ShopOptions { items: OfferItem[]; merchants: OfferMerchant[]; devices: { id: string; label: string }[] }

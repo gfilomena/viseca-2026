@@ -10,6 +10,7 @@ import { parsePreferences } from '../engine/preferences.ts';
 import { RemoteError, api } from '../remote/client.ts';
 import { workerState } from '../remote/worker.ts';
 import { describeRule } from '../policy/compiler.ts';
+import { interpretForMandate, sandboxOptions, tryToBuy } from '../services/sandbox.ts';
 
 function fail(reply: FastifyReply, e: unknown) {
   if (e instanceof PolicyError) return reply.code(e.status).send({ error: e.message });
@@ -87,8 +88,10 @@ export async function routes(app: FastifyInstance) {
   app.post<{ Body: { scenario_id: string; mandate_id: string; mode?: 'offline' | 'live'; step_ms?: number } }>('/api/runs', async (req, reply) => {
     try { return reply.code(201).send(await startRun(req.body.scenario_id, req.body.mandate_id, req.body.mode ?? 'offline', req.body.step_ms)); } catch (e) { return fail(reply, e); }
   });
-  app.get<{ Querystring: { run_id?: string; status?: string } }>('/api/decisions', async (req) =>
-    listDecisions(req.query).map((full) => { const { event, ...d } = full; return { ...d, impact: d.status === 'pending' ? approvalImpact(full) : [], merchant_category: event.authorization.merchant.merchant_category, currency: event.authorization.currency, amount: event.authorization.amount, items: event.authorization.items.map((i) => i.item_name) }; }));
+  app.get<{ Querystring: { run_id?: string; status?: string } }>('/api/decisions', async (req) => {
+    const runs = new Map(listRuns().map((r) => [r.id, r]));
+    return listDecisions(req.query).map((full) => { const { event, ...d } = full; return { ...d, run_mode: runs.get(d.run_id)?.mode, scenario_id: runs.get(d.run_id)?.scenario_id, impact: d.status === 'pending' ? approvalImpact(full) : [], merchant_category: event.authorization.merchant.merchant_category, currency: event.authorization.currency, amount: event.authorization.amount, items: event.authorization.items.map((i) => i.item_name) }; });
+  });
   app.get<{ Params: { id: string } }>('/api/decisions/:id', async (req, reply) => {
     const d = getDecision(req.params.id);
     return d ? { ...d, impact: d.status === 'pending' ? approvalImpact(d) : [] } : reply.code(404).send({ error: 'Unknown authorization' });
@@ -96,6 +99,18 @@ export async function routes(app: FastifyInstance) {
   app.post<{ Params: { id: string }; Body: { decision: 'approve' | 'decline'; note?: string } }>('/api/decisions/:id/resolve', async (req, reply) => {
     if (!['approve', 'decline'].includes(req.body?.decision)) return reply.code(400).send({ error: 'decision must be approve or decline' });
     try { return await resolveStepUp(req.params.id, req.body.decision, req.body.note); } catch (e) { return fail(reply, e); }
+  });
+
+  // --- Sandbox shopping chat (simulated agent → wallet control) --------------
+  app.get<{ Querystring: { mandate_id: string } }>('/api/shop/options', async (req, reply) => {
+    try { return sandboxOptions(req.query.mandate_id); } catch (e) { return fail(reply, e); }
+  });
+  app.post<{ Body: { mandate_id: string; text: string } }>('/api/shop/interpret', async (req, reply) => {
+    try { return interpretForMandate(req.body?.mandate_id, req.body?.text); } catch (e) { return fail(reply, e); }
+  });
+  app.post<{ Body: { mandate_id: string; offer: any } }>('/api/shop/buy', async (req, reply) => {
+    if (!req.body?.offer) return reply.code(400).send({ error: 'offer is required' });
+    try { return reply.code(201).send(tryToBuy(req.body.mandate_id, req.body.offer)); } catch (e) { return fail(reply, e); }
   });
 
   // --- Server-sent events for the UI ----------------------------------------

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import type { CardProfile, DecisionRow, HardRule, Health, Mandate, Run, Scenario, UncertaintyPolicy } from './models';
+import type { CardProfile, DecisionRow, HardRule, Health, InterpretedRequest, Mandate, PurchaseOffer, Run, Scenario, ShopOptions, UncertaintyPolicy } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -27,6 +27,10 @@ export class ApiService {
   decisions = (q: { run_id?: string; status?: string } = {}) =>
     this.get<DecisionRow[]>(`/decisions?${new URLSearchParams(Object.entries(q).filter(([, v]) => v) as [string, string][])}`);
   decision = (id: string) => this.get<DecisionRow>(`/decisions/${encodeURIComponent(id)}`);
+  shopOptions = (mandateId: string) => this.get<ShopOptions>(`/shop/options?mandate_id=${encodeURIComponent(mandateId)}`);
+  interpret = (mandate_id: string, text: string) => this.send<InterpretedRequest>('POST', '/shop/interpret', { mandate_id, text });
+  buy = (mandate_id: string, offer: PurchaseOffer) => this.send<DecisionRow>('POST', '/shop/buy', { mandate_id, offer });
+
   resolve = (id: string, decision: 'approve' | 'decline', note?: string) => this.send<DecisionRow>('POST', `/decisions/${encodeURIComponent(id)}/resolve`, { decision, note });
 }
 
