@@ -38,6 +38,7 @@ export const FIELDS = {
   amount: 'authorization.billing_amount_chf',
   fulfillment: 'authorization.fulfillment_method',
   returnDays: 'authorization.return_window_days',
+  deliveryDays: 'authorization.delivery_within_days',
   localHour: 'authorization.local_hour',
   merchantCategory: 'merchant.merchant_category',
   merchantCountry: 'merchant.merchant_country',
@@ -231,6 +232,15 @@ export function compileInstruction(instruction: string, catalogue: CatalogueItem
   if (/\bfor delivery\b|\bdelivered\b|\bhome delivery\b/i.test(text)) {
     add({ field: FIELDS.fulfillment, operator: 'in', value: ['delivery'] }, 'Orders must be delivered (not digital or pick-up).', 'for delivery');
   }
+  const arrive = lower.match(/\b(?:arrive[sd]?|deliver(?:ed|y)?|ship(?:ped|s)?|receive[sd]?)\b[^.]*?\bwithin\s+(\d+|[a-z]+)\s+(?:working\s+|business\s+|calendar\s+)?days/);
+  if (arrive) {
+    const n = /\d/.test(arrive[1]) ? Number(arrive[1]) : NUMBER_WORDS[arrive[1]];
+    add(
+      { field: FIELDS.deliveryDays, operator: '<=', value: n },
+      `The order must arrive within ${n} days of purchase. If the order carries no delivery date, the purchase is treated as uncertain.`,
+      arrive[0],
+    );
+  }
 
   // --- Who may be paid ------------------------------------------------------
   for (const [cat, re] of Object.entries(MERCHANT_CATEGORY_SYNONYMS)) {
@@ -318,6 +328,7 @@ export function describeRule(rule: HardRule): string {
     case FIELDS.itemCategory: return `Item categories ${op[rule.operator]}: ${v}`;
     case FIELDS.size: return `Size ${op[rule.operator]} ${v}`;
     case FIELDS.returnDays: return `Return window ${op[rule.operator]} ${v} days`;
+    case FIELDS.deliveryDays: return `Delivery time ${op[rule.operator]} ${v} days`;
     case FIELDS.merchantCategory: return `Shop category ${op[rule.operator]}: ${v}`;
     case FIELDS.merchantCountry: return `Shop country ${op[rule.operator]}: ${v}`;
     case FIELDS.quantity: return `Total quantity ${op[rule.operator]} ${v}`;

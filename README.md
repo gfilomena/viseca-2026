@@ -125,6 +125,7 @@ unchanged, so behaviour stays predictable.
 | `items.quantity_total` | Units in the basket |
 | `basket.unrequested_lines` | Lines outside the requested product/category (add-ons) |
 | `authorization.return_window_days` | From `order_returnable` + shop text; "final sale" = 0, unstated → uncertain |
+| `authorization.delivery_within_days` | Days between `timestamp` and the order's own `delivery_by`; not a delivery order or no `delivery_by` → uncertain |
 | `authorization.fulfillment_method` | e.g. `delivery` |
 | `authorization.local_hour` | Hour in Europe/Zurich |
 | `merchant.merchant_category` / `merchant.merchant_country` | Registered merchant facts |
