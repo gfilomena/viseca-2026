@@ -4,7 +4,7 @@
       <h1>Shop</h1>
       <p>Your agent buys; your wallet policy decides.</p>
     </div>
-    <label class="field shop-for">Shopping for
+    <label class="pill-select shop-for">Shopping for
       <select [ngModel]="chat.customerId()" (ngModelChange)="selectCustomer($event)">
         @for (u of users(); track u.customer_id) {
           <option [value]="u.customer_id">{{ u.persona_name }} · {{ u.home_region }}{{ u.hasPolicy ? '' : ' · no policy' }}</option>
@@ -123,7 +123,9 @@
       @if (mandate()) {
         <form class="composer" (ngSubmit)="send(box)">
           <input #box name="msg" placeholder="What should I buy?" [ngModel]="input()" (ngModelChange)="input.set($event)" (keydown.enter)="$event.preventDefault(); send(box)" autocomplete="off" aria-label="Message to the shopping agent" />
-          <button class="btn primary" type="submit" [disabled]="busy() || !input().trim()">Send</button>
+          <button class="send-btn" type="submit" [disabled]="busy() || !input().trim()" aria-label="Send">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </button>
         </form>
       } @else {
         <div class="callout info">{{ selectedUser()?.persona_name ?? 'This customer' }} has no active wallet policy. <a routerLink="/policy">Set one up</a> first.</div>
@@ -172,15 +174,15 @@
           @for (r of rows(); track r.authorization_id) {
             <tr [class.clickable]="r.status === 'pending'" (click)="r.status === 'pending' && decideNow(r.authorization_id)"
                 [attr.title]="r.status === 'pending' ? 'Click to approve or decline' : null">
-              <td class="nowrap">{{ r.created_at | date: 'MMM d, HH:mm:ss' }}</td>
-              <td class="nowrap"><span class="chip">{{ source(r) }}</span></td>
-              <td>{{ r.merchant_name }}</td>
-              <td class="basket">{{ (r.items ?? []).join(', ') }}</td>
-              <td class="num">{{ r.billing_amount_chf | number: '1.2-2' }}</td>
-              <td><span class="badge" [class]="r.engine_decision">{{ decisionLabel[r.engine_decision] }}</span></td>
-              <td><span class="badge" [class]="r.status">{{ statusLabel[r.status] }}</span>
+              <td class="nowrap" data-label="When">{{ r.created_at | date: 'MMM d, HH:mm:ss' }}</td>
+              <td class="nowrap" data-label="Source"><span class="chip">{{ source(r) }}</span></td>
+              <td data-label="Shop">{{ r.merchant_name }}</td>
+              <td class="basket" data-label="Basket">{{ (r.items ?? []).join(', ') }}</td>
+              <td class="num" data-label="CHF">{{ r.billing_amount_chf | number: '1.2-2' }}</td>
+              <td data-label="Decision"><span class="badge" [class]="r.engine_decision">{{ decisionLabel[r.engine_decision] }}</span></td>
+              <td data-label="Outcome"><span class="badge" [class]="r.status">{{ statusLabel[r.status] }}</span>
                 @if (r.status === 'pending') { <span class="decide-hint">Decide ›</span> }</td>
-              <td class="why">{{ summary(r) }}</td>
+              <td class="why" data-label="Why">{{ summary(r) }}</td>
             </tr>
           } @empty {
             <tr><td colspan="8" class="empty">No transactions yet. Ask the agent to buy something.</td></tr>

@@ -1,5 +1,6 @@
 <dialog #dialog class="step-up" (cancel)="onCancel($event)" aria-labelledby="step-up-title" aria-describedby="step-up-why">
   @if (d(); as d) {
+    <div class="grabber" aria-hidden="true"></div>
     <header>
       <span class="badge step_up">Your decision is needed</span>
       <span class="spacer"></span>

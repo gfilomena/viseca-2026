@@ -8,9 +8,9 @@
   @if (error()) { <div class="callout error">{{ error() }}</div> }
 
   @if (health(); as h) {
-    <div class="counts">
+    <div class="stat-scroll">
       @for (kv of h.data | keyvalue; track kv.key) {
-        <div class="stat"><span class="faint">{{ kv.key.replace('_', ' ') }}</span><strong>{{ kv.value | number }}</strong></div>
+        <div class="stat-tile"><span class="faint">{{ kv.key.replace('_', ' ') }}</span><strong>{{ kv.value | number }}</strong></div>
       }
     </div>
   }
@@ -80,14 +80,16 @@
           <div class="row">@for (pr of p.preferences; track $index) { <span class="chip">{{ pr.kind === 'avoid' ? 'avoid' : 'expects' }}: {{ pr.phrase }}</span> }</div>
         } @else { <p class="faint">No preference we can check automatically.</p> }
         <h3>Familiar shops</h3>
-        <table>
-          <thead><tr><th>Shop</th><th>ID</th><th class="num">Approved</th></tr></thead>
-          <tbody>
-            @for (m of p.merchants; track m.merchant_id) {
-              <tr><td>{{ m.merchant_name }}</td><td class="mono">{{ m.merchant_id }}</td><td class="num">{{ m.approved_purchases }}</td></tr>
-            }
-          </tbody>
-        </table>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Shop</th><th>ID</th><th class="num">Approved</th></tr></thead>
+            <tbody>
+              @for (m of p.merchants; track m.merchant_id) {
+                <tr><td data-label="Shop">{{ m.merchant_name }}</td><td class="mono" data-label="ID">{{ m.merchant_id }}</td><td class="num" data-label="Approved">{{ m.approved_purchases }}</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
         <h3>Known devices</h3>
         <div class="row">@for (d of p.devices | keyvalue; track d.key) { <span class="chip mono">{{ d.key }} · {{ d.value }}</span> }</div>
         <h3>Countries</h3>
@@ -103,11 +105,11 @@
           <tbody>
             @for (a of attempts(); track a['authorization_id']) {
               <tr>
-                <td class="faint">{{ a['replay_order'] }}</td>
-                <td class="mono">{{ a['authorization_id'] }}</td>
-                <td>{{ a['merchant_name'] }} <span class="faint">{{ a['merchant_category'] }} · {{ a['merchant_country'] }}</span></td>
-                <td class="num">{{ a['currency'] }} {{ a['amount'] | number: '1.2-2' }}</td>
-                <td class="mono">{{ a['customer_device_id'] }}</td>
+                <td class="faint" data-label="#">{{ a['replay_order'] }}</td>
+                <td class="mono" data-label="Source">{{ a['authorization_id'] }}</td>
+                <td data-label="Shop">{{ a['merchant_name'] }} <span class="faint">{{ a['merchant_category'] }} · {{ a['merchant_country'] }}</span></td>
+                <td class="num" data-label="Amount">{{ a['currency'] }} {{ a['amount'] | number: '1.2-2' }}</td>
+                <td class="mono" data-label="Device">{{ a['customer_device_id'] }}</td>
               </tr>
             }
           </tbody>
