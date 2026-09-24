@@ -8,6 +8,7 @@ import { api, RemoteError } from './client.ts';
 import { publish } from '../services/bus.ts';
 import { engineResultOf, markRemote, recordDecision } from '../services/decisions.ts';
 import { ensureLiveRun } from '../services/runs.ts';
+import { checkLiveRuns } from './platform.ts';
 
 const addFormats = addFormatsModule as unknown as (a: Ajv2020) => void;
 const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -57,6 +58,8 @@ export async function startWorker(): Promise<void> {
       workerState.lastPollAt = new Date().toISOString();
       const res = await api('/v1/decision-requests/next?wait=25', { timeoutMs: 35_000 });
       if (res.status === 200 && res.data) void handleEnvelope(res.data).catch((e) => console.error('[worker]', e));
+      // 204 does not mean the run is over: check progress and keep polling.
+      else if (res.status === 204) void checkLiveRuns();
       workerState.lastError = null;
     } catch (e) {
       workerState.lastError = String((e as Error).message);

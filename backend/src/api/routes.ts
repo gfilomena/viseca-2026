@@ -2,14 +2,16 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import { getDb, packReport } from '../db/db.ts';
 import { config, liveEnabled } from '../config.ts';
 import { bus, type BusMessage } from '../services/bus.ts';
-import { createDraft, editDraft, confirmDraft, tighten, revoke, getMandate, listMandates, PolicyError } from '../services/mandates.ts';
+import { createReviewedDraft, editDraft, confirmDraft, tighten, revoke, getMandate, listMandates, PolicyError } from '../services/mandates.ts';
 import { listRuns, getRun, startRun, resolveStepUp, cascadeRevocation } from '../services/runs.ts';
 import { approvalImpact, getDecision, listDecisions } from '../services/decisions.ts';
 import { getCardProfile } from '../engine/profile.ts';
 import { parsePreferences } from '../engine/preferences.ts';
 import { RemoteError, api } from '../remote/client.ts';
 import { workerState } from '../remote/worker.ts';
+import { platform, resetTeam, syncPlatform } from '../remote/platform.ts';
 import { describeRule } from '../policy/compiler.ts';
+import { llmConfig } from '../policy/llm.ts';
 import { interpretForMandate, sandboxOptions, tryToBuy } from '../services/sandbox.ts';
 
 function fail(reply: FastifyReply, e: unknown) {
@@ -23,7 +25,7 @@ export async function routes(app: FastifyInstance) {
   const db = getDb();
 
   app.get('/api/health', async () => ({
-    ok: true, engine: config.engineVersion, pack: packReport(), live: liveEnabled(), worker: workerState,
+    ok: true, engine: config.engineVersion, pack: packReport(), live: liveEnabled(), worker: workerState, platform, policy_llm: { enabled: llmConfig.enabled, model: llmConfig.model },
     data: Object.fromEntries(['customers', 'cards', 'merchants', 'items', 'authorization_history', 'purchase_attempts']
       .map((t) => [t, (db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n])),
   }));
@@ -68,13 +70,17 @@ export async function routes(app: FastifyInstance) {
     try { const m = getMandate(req.params.id); return { ...m, rule_labels: m.hard_rules.map(describeRule) }; } catch (e) { return fail(reply, e); }
   });
   app.post<{ Body: { instruction: string; scenario_id?: string } }>('/api/mandates', async (req, reply) => {
-    try { return reply.code(201).send(createDraft(req.body.instruction, req.body.scenario_id ?? null)); } catch (e) { return fail(reply, e); }
+    try { return reply.code(201).send(await createReviewedDraft(req.body.instruction, req.body.scenario_id ?? null)); } catch (e) { return fail(reply, e); }
   });
   app.put<{ Params: { id: string }; Body: any }>('/api/mandates/:id/draft', async (req, reply) => {
     try { return editDraft(req.params.id, req.body as any); } catch (e) { return fail(reply, e); }
   });
   app.post<{ Params: { id: string } }>('/api/mandates/:id/confirm', async (req, reply) => {
-    try { return await confirmDraft(req.params.id); } catch (e) { return fail(reply, e); }
+    try {
+      const m = await confirmDraft(req.params.id);
+      for (const id of m.replaced_ids ?? []) cascadeRevocation(id);
+      return m;
+    } catch (e) { return fail(reply, e); }
   });
   app.patch<{ Params: { id: string }; Body: any }>('/api/mandates/:id', async (req, reply) => {
     try { return await tighten(req.params.id, req.body as any); } catch (e) { return fail(reply, e); }
@@ -121,6 +127,12 @@ export async function routes(app: FastifyInstance) {
   app.post<{ Body: { mandate_id: string; offer: any } }>('/api/shop/buy', async (req, reply) => {
     if (!req.body?.offer) return reply.code(400).send({ error: 'offer is required' });
     try { return reply.code(201).send(tryToBuy(req.body.mandate_id, req.body.offer)); } catch (e) { return fail(reply, e); }
+  });
+
+  // --- Platform --------------------------------------------------------------
+  app.post('/api/platform/sync', async () => syncPlatform());
+  app.post('/api/team/reset', async (_req, reply) => {
+    try { return await resetTeam(); } catch (e) { return fail(reply, e); }
   });
 
   // --- Server-sent events for the UI ----------------------------------------

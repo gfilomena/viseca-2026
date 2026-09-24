@@ -45,6 +45,13 @@ Every 5 s the backend reconciles live step-ups whose human window has passed, an
 submission failed, with `/v1/authorizations`; until then a failed submission is not counted as
 spend, and a step-up the platform stays silent about is closed as expired (never approved).
 
+On start (and every 10 minutes, or *Check now* on the *Customer data* page) the backend reads the
+platform's `/healthz` and, with a key, `/v1/bootstrap` and `/v1/reference-data`: the human window and
+decision deadline are taken from the team settings when present (documented defaults 120 s / 8 s
+otherwise), and the platform's `pack_version` is compared with the local data pack. When a poll returns
+204 the worker checks `/v1/scenario-runs/{id}` and marks finished hosted runs as completed.
+*Reset team data* calls `POST /v1/team/reset` (with a key) and clears local policies, runs and decisions.
+
 The API has no login (single-customer prototype). It listens on `127.0.0.1` (`HOST` to change) and
 only accepts browser requests from the UI origin (`CORS_ORIGINS`, default `http://localhost:4200`);
 requests carrying any other `Origin` are refused, so another website cannot approve a step-up.
@@ -77,6 +84,16 @@ strict patterns, and instruction-like text is flagged and ignored — it can nev
 
 Rolling limits count only **final approvals** in simulated time; a step-up counts once the customer
 approves it. If a late approval would breach a rolling limit, the inbox warns before they answer.
+
+## Optional language-model review of drafts
+
+With `POLICY_LLM=on` (and Anthropic credentials, e.g. `ANTHROPIC_API_KEY`), each new draft is reviewed by
+a language model (`POLICY_LLM_MODEL`, default `claude-opus-5`, low effort, 20 s timeout). It reads the
+instruction and the built-in rules and may only **add** rules in the vocabulary below plus questions for
+the customer; every suggestion is validated (known fields, operators, categories, item ids, ISO countries)
+and shown as *suggested by the language model*. It never removes or edits a rule and is **never used to
+decide a purchase**. On missing credentials, timeout, refusal or invalid output the built-in draft is used
+unchanged, so behaviour stays predictable.
 
 ## Rule vocabulary (`hard_rules[].field`)
 
@@ -127,7 +144,11 @@ rather than by the scenario fixture windows. Below the chat, **All transactions*
 ## Customer control
 
 - **Draft → confirm**: the instruction is compiled into checks with explanations, the phrase each came
-  from, and open questions. Nothing is enforced until the customer confirms.
+  from, and open questions. Nothing is enforced until the customer confirms. The exact original wording
+  is stored and sent to the platform.
+- **One active policy per card**: confirming a new policy replaces the previous one for that card
+  (revoked on the platform, `superseded` locally; purchases waiting under it are declined). The draft
+  warns before this happens.
 - **Tighten**: only adds rules or moves `uncertainty_policy` to `decline` (applies to new runs).
 - **Revoke**: withdraws permission; offline pending step-ups are declined, new runs are refused.
 - **Step-up**: the customer approves or declines in the inbox (120 s window; unanswered = not paid).

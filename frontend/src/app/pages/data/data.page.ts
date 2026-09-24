@@ -17,10 +17,30 @@ export class DataPage {
   protected attempts = signal<Record<string, any>[]>([]);
   protected profile = signal<CardProfile | null>(null);
   protected error = signal<string | null>(null);
+  protected notice = signal<string | null>(null);
+  protected busy = signal(false);
 
   constructor() {
     this.api.health().then((h) => this.health.set(h)).catch((e) => this.error.set(errorText(e)));
     this.api.scenarios().then((s) => { this.scenarios.set(s); if (s[0]) this.pick(s[0]); });
+  }
+
+  protected async syncPlatform() {
+    this.busy.set(true);
+    try {
+      const platform = await this.api.syncPlatform();
+      this.health.update((h) => (h ? { ...h, platform } : h));
+    } catch (e) { this.error.set(errorText(e)); } finally { this.busy.set(false); }
+  }
+
+  protected async reset() {
+    if (!confirm('Reset team data? This deletes all wallet policies, runs and decisions (and resets the team on the hosted platform when a key is set). The data pack stays.')) return;
+    this.busy.set(true);
+    this.error.set(null);
+    try {
+      const r = await this.api.resetTeam();
+      this.notice.set(`Reset done: ${r.local['mandates']} policies, ${r.local['runs']} runs, ${r.local['decisions']} decisions removed; platform ${r.platform}.`);
+    } catch (e) { this.error.set(errorText(e)); } finally { this.busy.set(false); }
   }
 
   protected async pick(s: Scenario) {

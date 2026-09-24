@@ -15,6 +15,30 @@
     </div>
   }
 
+  @if (notice()) { <div class="callout info">{{ notice() }}</div> }
+
+  @if (health(); as h) {
+    <article class="card stack">
+      <header>
+        <h2>Hosted platform</h2>
+        <div class="row">
+          <button class="btn sm" (click)="syncPlatform()" [disabled]="busy()">Check now</button>
+          <button class="btn sm danger" (click)="reset()" [disabled]="busy()">Reset team data</button>
+        </div>
+      </header>
+      @if (h.platform; as p) {
+        <ul class="checks">
+          <li><span class="badge" [class.pass]="p.reachable" [class.fail]="p.reachable === false">{{ p.reachable ? '✓' : p.reachable === false ? '✕' : '?' }}</span> <strong>Reachable</strong> <span class="muted">{{ p.reachable ? 'healthz answered' : p.error ?? 'not checked yet' }}</span></li>
+          <li><span class="badge" [class.pass]="p.pack_match" [class.fail]="p.pack_match === false">{{ p.pack_match ? '✓' : p.pack_match === false ? '✕' : '?' }}</span> <strong>Data pack</strong> <span class="muted">local {{ p.local_pack_version ?? '?' }} · platform {{ p.remote_pack_version ?? '?' }}</span></li>
+          <li><span class="badge" [class.pass]="p.bootstrap_ok" [class.fail]="p.bootstrap_ok === false">{{ p.bootstrap_ok ? '✓' : p.bootstrap_ok === false ? '✕' : '–' }}</span> <strong>Team settings</strong> <span class="muted">{{ h.live ? (p.bootstrap_ok ? 'read from /v1/bootstrap' : 'bootstrap failed') : 'no team key: offline replay only' }}</span></li>
+          <li><span class="badge">i</span> <strong>Human window</strong> <span class="muted">{{ p.human_window_seconds }} s ({{ p.human_window_source }}) · decision deadline {{ p.decision_deadline_seconds }} s ({{ p.decision_deadline_source }})</span></li>
+          <li><span class="badge">i</span> <strong>Policy language model</strong> <span class="muted">{{ h.policy_llm?.enabled ? 'on · ' + h.policy_llm?.model + ' (drafts only, never decisions)' : 'off (built-in parser only)' }}</span></li>
+        </ul>
+        <p class="faint">Checked {{ p.checked_at | date: 'medium' }}. Reset is for development; the platform disables it during judging.</p>
+      }
+    </article>
+  }
+
   @if (health()?.pack; as pack) {
     <article class="card stack">
       <header>

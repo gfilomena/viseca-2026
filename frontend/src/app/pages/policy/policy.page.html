@@ -49,7 +49,8 @@
                 <p>{{ e.text }}</p>
                 <div class="row faint">
                   <code>{{ ruleCode(e.rule) }}</code>
-                  @if (e.source) { <span class="chip">from “{{ e.source }}”</span> }
+                  @if (fromModel(e.source)) { <span class="chip model">suggested by the language model</span> }
+                  @else if (e.source) { <span class="chip">from “{{ e.source }}”</span> }
                 </div>
               </div>
               <div class="rule-edit">
@@ -89,6 +90,9 @@
           </ul>
         </details>
 
+        @if (replaces().length) {
+          <div class="callout warn">Confirming replaces the active policy for card {{ d.card_id }} ({{ replaces().length }}). The old one is withdrawn and purchases waiting under it are declined.</div>
+        }
         <div class="row">
           <span class="faint">After confirming, checks can only be tightened, never loosened.</span>
           <span class="spacer"></span>
@@ -104,7 +108,7 @@
   <article class="card stack">
     <header>
       <h2><span class="step">3</span> Active policies</h2>
-      <span class="faint">{{ active().length }} active · {{ revoked().length }} revoked</span>
+      <span class="faint">{{ active().length }} active · {{ revoked().length }} revoked or replaced</span>
     </header>
 
     @for (m of active(); track m.id) {
@@ -180,10 +184,10 @@
 
     @if (revoked().length) {
       <details>
-        <summary class="muted">Revoked policies ({{ revoked().length }})</summary>
+        <summary class="muted">Revoked or replaced policies ({{ revoked().length }})</summary>
         <ul class="audit">
           @for (m of revoked(); track m.id) {
-            <li><span class="badge revoked">Revoked</span> <code>{{ m.remote_mandate_id ?? m.id }}</code> “{{ m.instruction }}” <span class="faint">{{ m.revoked_at | date: 'short' }}</span></li>
+            <li><span class="badge revoked">{{ m.status === 'superseded' ? 'Replaced' : 'Revoked' }}</span> <code>{{ m.remote_mandate_id ?? m.id }}</code> “{{ m.instruction }}” <span class="faint">{{ m.revoked_at | date: 'short' }}</span></li>
           }
         </ul>
       </details>

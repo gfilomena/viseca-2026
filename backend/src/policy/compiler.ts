@@ -54,11 +54,18 @@ const NUMBER_WORDS: Record<string, number> = {
   fourteen: 14, thirty: 30,
 };
 
-const ITEM_CATEGORY_SYNONYMS: Record<string, RegExp> = {
+export const ITEM_CATEGORY_SYNONYMS: Record<string, RegExp> = {
   groceries: /\bgrocer(y|ies)\b/,
   clothing: /\b(clothing|clothes|apparel)\b/,
   electronics: /\belectronics?\b/,
-  books: /\bbooks?\b/,
+  // "book" is also a verb ("book a hotel"): only the noun forms count.
+  books: /\bbooks\b|\be-?books?\b|\b(a|the|one|some|new|paperback|reference) book\b/,
+  hotel: /\bhotels?\b|\b(accommodation|serviced apartment)s?\b/,
+  transport: /\b(train|rail|bus|tram|transit|transport|public transport)\b( tickets?| pass(es)?)?/,
+  fuel: /\b(fuel|petrol|diesel|gasoline|ev charging|charging session)s?\b/,
+  dining: /\b(restaurant|dinner reservation|lunch|brunch|dining)s?\b/,
+  food_delivery: /\b(food|meal) delivery\b|\btake-?aways?\b/,
+  home_improvement: /\b(diy|home improvement|tools?|paint)\b/,
   household: /\bhousehold (items|products|goods|essentials)\b/,
   gift_card: /\bgift ?(cards?|vouchers?)\b|\bvouchers?\b/,
   cosmetics: /\b(cosmetics|beauty|fragrances?)\b/,
@@ -135,7 +142,10 @@ export function compileInstruction(instruction: string, catalogue: CatalogueItem
   const add = (rule: HardRule, explanation: string, source: string) => rules.push({ rule, text: explanation, source });
 
   // Split into clauses so "each order ≤ X, and total across 7 days ≤ Y" gives two rules.
-  const clauses = text.split(/(?<=[.!?;])\s+|,\s*(?:and|but)\s+/).map((c) => c.trim()).filter(Boolean);
+  // "CHF 100 per purchase and CHF 400 per month" is also split, before a second amount.
+  const clauses = text
+    .split(/(?<=[.!?;])\s+|,\s*(?:and|but)\s+|\s+(?:and|but|,)\s+(?=(?:(?:up to|at most|max(?:imum)?|no more than|not more than|under|below|less than)\s+)?(?:CHF|EUR|GBP|USD|Fr\.?)\s?\d)/i)
+    .map((c) => c.trim()).filter(Boolean);
   const consumed = new Set<string>();
 
   // --- Money limits ---------------------------------------------------------
@@ -145,7 +155,8 @@ export function compileInstruction(instruction: string, catalogue: CatalogueItem
     consumed.add(clause);
     const strict = /\b(less than|under|below)\b/i.test(clause) && !/\bat or below\b|\bor less\b/i.test(clause);
     const operator = strict ? '<' : '<=';
-    const periodDays = /\b(total|across|in any|altogether|combined|overall)\b/i.test(clause) || /\b(per|a|each|every) (week|month|day)\b|\b(weekly|monthly|daily)\b/i.test(clause)
+    const perPurchase = /\b(per|each|every|a single|one) (purchase|order|payment|transaction|item)\b/i.test(clause);
+    const periodDays = !perPurchase && (/\b(total|across|in any|altogether|combined|overall)\b/i.test(clause) || /\b(per|a|each|every) (week|month|day)\b|\b(weekly|monthly|daily)\b/i.test(clause))
       ? parsePeriodDays(clause)
       : undefined;
     const rule: HardRule = { field: FIELDS.amount, operator, value: amount.value, currency: amount.currency, scope: periodDays ? 'period' : 'purchase' };
@@ -279,7 +290,7 @@ export function compileInstruction(instruction: string, catalogue: CatalogueItem
   for (const c of unmatched) openQuestions.push(`We may not have fully understood: “${c}”. Please check the rules above cover it.`);
 
   return {
-    instruction: text,
+    instruction,
     hard_rules: rules.map((r) => r.rule),
     uncertainty_policy: uncertainty,
     guidance,

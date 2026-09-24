@@ -150,7 +150,7 @@ export function withDeliveryContext(e: AuthorizationEvent, runId: string): Autho
 
 export async function startRun(scenarioId: string, mandateId: string, mode: 'offline' | 'live', stepMs = 700): Promise<Run> {
   const m = getMandate(mandateId);
-  if (m.status !== 'active') throw new PolicyError(m.status === 'revoked' ? 'This policy was revoked; create and confirm a new one.' : 'Confirm the policy before the agent can shop.', 409);
+  if (m.status !== 'active') throw new PolicyError(m.status === 'revoked' ? 'This policy was revoked; create and confirm a new one.' : m.status === 'superseded' ? 'This policy was replaced by a newer one; use the active policy.' : 'Confirm the policy before the agent can shop.', 409);
   const authority = getDb().prepare('SELECT a.* FROM purchase_attempts p JOIN scenario_authorities a ON a.authority_id = p.authority_id WHERE p.scenario_id = ? LIMIT 1').get(scenarioId) as any;
   if (!authority) throw new PolicyError(`Unknown scenario ${scenarioId}`, 404);
 
@@ -177,8 +177,9 @@ export async function startRun(scenarioId: string, mandateId: string, mode: 'off
   void (async () => {
     try {
       for (const e of events) {
-        if (getMandate(m.id).status === 'revoked') {
-          setRunStatus(run.id, 'completed', 'Stopped: the customer revoked the wallet policy.');
+        const status = getMandate(m.id).status;
+        if (status !== 'active') {
+          setRunStatus(run.id, 'completed', status === 'superseded' ? 'Stopped: the wallet policy was replaced by a newer one.' : 'Stopped: the customer revoked the wallet policy.');
           return;
         }
         recordDecision(withDeliveryContext(e, run.id), run.id);
@@ -280,7 +281,8 @@ export async function reconcileLive(opts: { only?: string; force?: boolean; list
 export function cascadeRevocation(mandateId: string) {
   const rows = getDb().prepare(`SELECT d.authorization_id FROM decisions d JOIN runs r ON r.id = d.run_id
     WHERE d.status = 'pending' AND r.mode != 'live' AND r.mandate_id = ?`).all(mandateId) as { authorization_id: string }[];
-  for (const r of rows) setResolution(r.authorization_id, 'declined', 'revocation', 'Declined because you revoked the wallet policy.');
+  const replaced = getMandate(mandateId).status === 'superseded';
+  for (const r of rows) setResolution(r.authorization_id, 'declined', 'revocation', replaced ? 'Declined because the wallet policy was replaced by a newer one.' : 'Declined because you revoked the wallet policy.');
 }
 
 export { markRemote };
