@@ -23,7 +23,8 @@
         <h2>Hosted platform</h2>
         <div class="row">
           <button class="btn sm" (click)="syncPlatform()" [disabled]="busy()">Check now</button>
-          <button class="btn sm danger" (click)="reset()" [disabled]="busy()">Reset team data</button>
+          <button class="btn sm danger" (click)="reset()" [disabled]="busy()"
+                  [attr.title]="h.platform?.reset_enabled === false ? 'The platform reset is off right now; this still clears local wallet policies, runs and decisions.' : ''">Reset team data</button>
         </div>
       </header>
       @if (h.platform; as p) {
@@ -32,10 +33,70 @@
           <li><span class="badge" [class.pass]="p.pack_match" [class.fail]="p.pack_match === false">{{ p.pack_match ? '✓' : p.pack_match === false ? '✕' : '?' }}</span> <strong>Data pack</strong> <span class="muted">local {{ p.local_pack_version ?? '?' }} · platform {{ p.remote_pack_version ?? '?' }}</span></li>
           <li><span class="badge" [class.pass]="p.bootstrap_ok" [class.fail]="p.bootstrap_ok === false">{{ p.bootstrap_ok ? '✓' : p.bootstrap_ok === false ? '✕' : '–' }}</span> <strong>Team settings</strong> <span class="muted">{{ h.live ? (p.bootstrap_ok ? 'read from /v1/bootstrap' : 'bootstrap failed') : 'no team key: offline replay only' }}</span></li>
           <li><span class="badge">i</span> <strong>Human window</strong> <span class="muted">{{ p.human_window_seconds }} s ({{ p.human_window_source }}) · decision deadline {{ p.decision_deadline_seconds }} s ({{ p.decision_deadline_source }})</span></li>
+          <li><span class="badge" [class.pass]="p.reset_enabled" [class.fail]="p.reset_enabled === false">{{ p.reset_enabled ? '✓' : p.reset_enabled === false ? '✕' : '–' }}</span> <strong>Platform reset</strong> <span class="muted">{{ p.reset_enabled === false ? 'disabled right now (judging?) — Reset team data still clears local state' : p.reset_enabled ? 'available' : 'unknown until checked' }}</span></li>
           <li><span class="badge">i</span> <strong>Policy language model</strong> <span class="muted">{{ h.policy_llm?.enabled ? 'on · ' + h.policy_llm?.model + ' (drafts only, never decisions)' : 'off (built-in parser only)' }}</span></li>
         </ul>
-        <p class="faint">Checked {{ p.checked_at | date: 'medium' }}. Reset is for development; the platform disables it during judging.</p>
+        <p class="faint">Checked {{ p.checked_at | date: 'medium' }}.</p>
       }
+    </article>
+  }
+
+  @if (health(); as h) {
+    <article class="card stack">
+      <header>
+        <h2>Hosted API</h2>
+        @if (!h.live) { <span class="badge">no team key: not available</span> }
+      </header>
+      <p class="muted">The simulator has no product catalogue of its own — the item/merchant catalogue above only
+        ships in the offline data pack. <code>/v1/reference-data</code> is the closest it offers, and
+        <code>/v1/authorizations</code> lists every pending and final transaction the platform holds for the team.</p>
+
+      <div class="grid-2">
+        <section class="stack-sm">
+          <div class="row">
+            <h3>Reference data ("products")</h3>
+            <span class="spacer"></span>
+            <button class="btn sm" (click)="loadReferenceData()" [disabled]="!h.live || liveBusy()">Load</button>
+          </div>
+          @if (liveReferenceData(); as ref) {
+            <pre class="json-view">{{ ref | json }}</pre>
+          } @else {
+            <p class="faint">Not loaded yet.</p>
+          }
+        </section>
+
+        <section class="stack-sm">
+          <div class="row">
+            <h3>Pending transactions</h3>
+            <span class="spacer"></span>
+            <button class="btn sm" (click)="loadPendingTransactions()" [disabled]="!h.live || liveBusy()">Load</button>
+          </div>
+          @if (livePending(); as rows) {
+            @if (rows.length) {
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Authorization</th><th>Status</th><th class="num">CHF</th><th>Merchant</th><th>Why</th></tr></thead>
+                  <tbody>
+                    @for (r of rows; track $index) {
+                      <tr>
+                        <td class="mono">{{ pendingField(r, 'authorization_id', 'id') }}</td>
+                        <td><span class="badge" [class.pending]="pendingField(r, 'status', 'final_status') === 'pending'">{{ pendingField(r, 'status', 'final_status') ?? '—' }}</span></td>
+                        <td class="num">{{ pendingField(r, 'authorization.billing_amount_chf', 'billing_amount_chf', 'amount') ?? '—' }}</td>
+                        <td>{{ pendingField(r, 'authorization.merchant.merchant_name', 'merchant_name') ?? '—' }}</td>
+                        <td class="faint">{{ pendingField(r, 'decision.customer_message', 'customer_message') ?? '—' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <p class="faint">The platform has no pending or final transactions for this team right now.</p>
+            }
+          } @else {
+            <p class="faint">Not loaded yet.</p>
+          }
+        </section>
+      </div>
     </article>
   }
 

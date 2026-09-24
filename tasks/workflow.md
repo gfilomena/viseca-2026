@@ -37,3 +37,6 @@ BUILD ✅ · VERIFY ✅ (50 backend tests unaffected, build, browser: switched b
 
 ## Shop chat: propose any product, not just the catalogue — feat/shop-any-product
 DEFINE ✅ · BUILD ✅ · VERIFY ✅ (54 backend tests incl. 4 new, frontend build, browser: non-catalogue product approved under an amount-only policy, and correctly declined under an item-specific policy) · SHIP ✅ (PR + merge on fork)
+
+## Wire the remaining hosted-API endpoints; verify the full lifecycle live, fix a real 422 — feat/live-api-full
+DEFINE ✅ · BUILD ✅ · VERIFY ✅ (61 backend tests, frontend build, full lifecycle run live against saw26api: bootstrap, mandate create/confirm, scenario-run, worker delivery+decision, /v1/authorizations, reconciliation) · REVIEW ⬜ · SHIP ⬜

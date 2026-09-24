@@ -9,7 +9,7 @@ import { getCardProfile } from '../engine/profile.ts';
 import { parsePreferences } from '../engine/preferences.ts';
 import { RemoteError, api } from '../remote/client.ts';
 import { workerState } from '../remote/worker.ts';
-import { platform, resetTeam, syncPlatform } from '../remote/platform.ts';
+import { fetchEvents, fetchReferenceData, getRemoteMandate, listPendingTransactions, platform, resetTeam, syncPlatform } from '../remote/platform.ts';
 import { describeRule } from '../policy/compiler.ts';
 import { llmConfig } from '../policy/llm.ts';
 import { interpretForMandate, sandboxOptions, tryToBuy } from '../services/sandbox.ts';
@@ -133,6 +133,24 @@ export async function routes(app: FastifyInstance) {
   app.post('/api/platform/sync', async () => syncPlatform());
   app.post('/api/team/reset', async (_req, reply) => {
     try { return await resetTeam(); } catch (e) { return fail(reply, e); }
+  });
+
+  // --- Hosted API pass-throughs (live mode only) ------------------------------
+  // "Products": the hosted API has no catalogue endpoint of its own — /v1/reference-data
+  // is the closest it offers (scenarios, fixed fx rates, history-file metadata); the item
+  // and merchant catalogue itself only ships in the offline data pack.
+  app.get('/api/live/reference-data', async (_req, reply) => {
+    try { return await fetchReferenceData(); } catch (e) { return fail(reply, e); }
+  });
+  // "Pending transactions": every pending and final authorization the platform holds for the team.
+  app.get('/api/live/authorizations', async (_req, reply) => {
+    try { return await listPendingTransactions(); } catch (e) { return fail(reply, e); }
+  });
+  app.get<{ Querystring: { since?: string } }>('/api/live/events', async (req, reply) => {
+    try { return await fetchEvents(req.query.since ?? 0); } catch (e) { return fail(reply, e); }
+  });
+  app.get<{ Params: { id: string } }>('/api/live/mandates/:id', async (req, reply) => {
+    try { return await getRemoteMandate(req.params.id); } catch (e) { return fail(reply, e); }
   });
 
   // --- Server-sent events for the UI ----------------------------------------

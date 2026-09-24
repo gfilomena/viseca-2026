@@ -4,7 +4,7 @@ import { Ajv2020 } from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
 import { config, liveEnabled } from '../config.ts';
 import type { AuthorizationEvent } from '../domain/types.ts';
-import { api, RemoteError } from './client.ts';
+import { api, RemoteError, toRemoteEvidence } from './client.ts';
 import { publish } from '../services/bus.ts';
 import { engineResultOf, markRemote, recordDecision } from '../services/decisions.ts';
 import { ensureLiveRun } from '../services/runs.ts';
@@ -35,7 +35,7 @@ export async function handleEnvelope(envelope: any): Promise<void> {
         decision: r.decision,
         reason_codes: r.reason_codes,
         customer_message: r.customer_message,
-        evidence: r.evidence.slice(0, 10),
+        evidence: toRemoteEvidence(r.evidence.slice(0, 10)),
         engine_version: config.engineVersion,
       },
     });

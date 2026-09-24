@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { getDb, json } from '../db/db.ts';
 import { liveEnabled } from '../config.ts';
 import type { AuthorizationEvent, EventMandate } from '../domain/types.ts';
-import { api } from '../remote/client.ts';
+import { api, toRemoteEvidence } from '../remote/client.ts';
 import { publish } from './bus.ts';
 import { getDecision, listDecisions, recordDecision, setResolution, markRemote, type DecisionRecord } from './decisions.ts';
 import { getMandate, PolicyError } from './mandates.ts';
@@ -203,7 +203,7 @@ export async function resolveStepUp(authorizationId: string, decision: 'approve'
   if (run.mode === 'live') {
     try {
       await api(`/v1/authorizations/${encodeURIComponent(authorizationId)}/resolve`, {
-        method: 'POST', body: { decision, customer_message: message, evidence: d.evidence.slice(0, 10) },
+        method: 'POST', body: { decision, customer_message: message, evidence: toRemoteEvidence(d.evidence.slice(0, 10)) },
       });
     } catch (e) {
       // Most likely the platform already closed it (e.g. the human window ran out): sync and explain.
@@ -223,15 +223,17 @@ export function expireStalePending() {
   for (const r of rows) setResolution(r.authorization_id, 'expired', 'timeout', 'No answer from the customer in time; the purchase was not made.');
 }
 
-type PlatformAuthorization = { authorization_id?: string; id?: string; status?: string; final_status?: string; decision?: string };
+export type PlatformAuthorization = { authorization_id?: string; id?: string; status?: string; final_status?: string; decision?: string; [key: string]: unknown };
 export type PlatformLister = () => Promise<PlatformAuthorization[]>;
 
-const defaultLister: PlatformLister = async () => {
+/** GET /v1/authorizations: every pending and final authorization the platform holds for the team. */
+export const fetchRemoteAuthorizations: PlatformLister = async () => {
   const res = await api('/v1/authorizations');
   const d: any = res.data;
   const list = Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : Array.isArray(d?.authorizations) ? d.authorizations : Array.isArray(d?.data?.authorizations) ? d.data.authorizations : [];
   return list as PlatformAuthorization[];
 };
+const defaultLister = fetchRemoteAuthorizations;
 
 /** Maps a platform status onto ours; null while the platform still considers it open. */
 export function mapPlatformStatus(raw: string | undefined): 'approved' | 'declined' | 'expired' | null {
