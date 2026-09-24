@@ -21,7 +21,7 @@
         <h2>Data pack verification</h2>
         <span class="badge" [class.active]="pack.ok" [class.revoked]="!pack.ok">{{ pack.ok ? 'Verified' : 'Problems found' }} · {{ pack.pack_version }}</span>
       </header>
-      <p class="muted">Checked against metadata.json and the schemas in data/schemas before loading ({{ pack.verified_at | date: 'medium' }}).</p>
+      <p class="muted">Checked against metadata.json and the schemas in resource/data/schemas before loading ({{ pack.verified_at | date: 'medium' }}).</p>
       <ul class="checks">
         @for (c of pack.checks; track c.name) {
           <li [class.bad]="!c.ok"><span class="badge" [class.pass]="c.ok" [class.fail]="!c.ok">{{ c.ok ? '✓' : '✕' }}</span> <strong>{{ c.name }}</strong> <span class="muted">{{ c.detail }}</span></li>

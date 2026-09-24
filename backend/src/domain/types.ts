@@ -1,4 +1,4 @@
-// Shapes mirror data/schemas/authorization_event.schema.json.
+// Shapes mirror resource/data/schemas/authorization_event.schema.json.
 
 export type Decision = 'approve' | 'decline' | 'step_up';
 export type UncertaintyPolicy = 'ask' | 'decline' | 'approve';
