@@ -1,0 +1,7 @@
+node_modules/
+backend/var/
+frontend/dist/
+frontend/.angular/
+.env
+*.log
+.DS_Store

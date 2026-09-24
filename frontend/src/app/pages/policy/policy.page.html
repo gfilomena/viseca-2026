@@ -1,0 +1,192 @@
+<section class="page">
+  <div class="page-head">
+    <div class="stack-sm">
+      <h1>Wallet policy</h1>
+      <p>Tell us in your own words what your shopping agent may buy. We turn it into checks you can review, confirm, tighten, or revoke. Neither the agent nor the shop can change them.</p>
+    </div>
+  </div>
+
+  @if (error()) { <div class="callout error" role="alert">{{ error() }}</div> }
+
+  <div class="grid-2">
+    <!-- 1. Describe -->
+    <article class="card stack">
+      <header>
+        <h2><span class="step">1</span> Describe what is allowed</h2>
+      </header>
+      <div class="scenarios" role="radiogroup" aria-label="Example customers">
+        @for (s of scenarios(); track s.scenario_id) {
+          <button type="button" class="scenario" role="radio" [attr.aria-checked]="s.scenario_id === scenarioId()"
+                  [class.on]="s.scenario_id === scenarioId()" (click)="pickScenario(s.scenario_id)">
+            <strong>{{ s.scenario_name }}</strong>
+            <span class="faint">{{ s.persona_name }} · card {{ s.card_id }} · {{ s.event_count }} purchase{{ s.event_count === 1 ? '' : 's' }}</span>
+          </button>
+        }
+      </div>
+      <label class="field">
+        Customer instruction
+        <textarea rows="4" [ngModel]="instruction()" (ngModelChange)="instruction.set($event); draft.set(null)"></textarea>
+      </label>
+      <div class="row">
+        <span class="faint">The original wording is kept and stored with the policy.</span>
+        <span class="spacer"></span>
+        <button class="btn primary" (click)="interpret()" [disabled]="busy() || !instruction().trim()">Interpret instruction</button>
+      </div>
+    </article>
+
+    <!-- 2. Review -->
+    <article class="card stack">
+      <header>
+        <h2><span class="step">2</span> Review what we understood</h2>
+        @if (draft()) { <span class="badge draft">Draft · not enforced yet</span> }
+      </header>
+
+      @if (draft(); as d) {
+        <ol class="rules">
+          @for (e of d.explanations; track $index; let i = $index) {
+            <li class="rule">
+              <div class="rule-main">
+                <p>{{ e.text }}</p>
+                <div class="row faint">
+                  <code>{{ ruleCode(e.rule) }}</code>
+                  @if (e.source) { <span class="chip">from “{{ e.source }}”</span> }
+                </div>
+              </div>
+              <div class="rule-edit">
+                <input [attr.aria-label]="'Value for rule ' + (i + 1)" [type]="isNumeric(e.rule) ? 'number' : 'text'"
+                       [value]="valueText(e.rule)" (change)="updateRuleValue(i, $any($event.target).value)" />
+                <button class="btn sm danger" (click)="removeRule(i)" [attr.aria-label]="'Remove rule ' + (i + 1)">Remove</button>
+              </div>
+            </li>
+          } @empty {
+            <li class="empty">No checks could be derived. Add more detail to the instruction.</li>
+          }
+        </ol>
+
+        <div class="stack-sm">
+          <h3>When we are not sure</h3>
+          <div class="segmented" role="radiogroup">
+            @for (u of uncertaintyOptions; track u.value) {
+              <button type="button" role="radio" [attr.aria-checked]="d.uncertainty_policy === u.value" [class.on]="d.uncertainty_policy === u.value" (click)="setUncertainty(u.value)">{{ u.label }}</button>
+            }
+          </div>
+          <p class="faint">
+            @for (u of uncertaintyOptions; track u.value) { @if (u.value === d.uncertainty_policy) { {{ u.help }} } }
+          </p>
+        </div>
+
+        @if (d.open_questions.length) {
+          <div class="callout warn stack-sm">
+            <strong>Please check</strong>
+            @for (q of d.open_questions; track $index) { <span>• {{ q }}</span> }
+          </div>
+        }
+
+        <details>
+          <summary class="muted">Standing protections ({{ d.guidance.length }})</summary>
+          <ul class="guidance">
+            @for (g of d.guidance; track $index) { <li>{{ g }}</li> }
+          </ul>
+        </details>
+
+        <div class="row">
+          <span class="faint">After confirming, checks can only be tightened, never loosened.</span>
+          <span class="spacer"></span>
+          <button class="btn primary" (click)="confirm()" [disabled]="busy() || d.hard_rules.length === 0">Confirm policy</button>
+        </div>
+      } @else {
+        <p class="empty">Interpret an instruction to see the checks we would enforce, with the reasoning and any open questions.</p>
+      }
+    </article>
+  </div>
+
+  <!-- 3. Active policies -->
+  <article class="card stack">
+    <header>
+      <h2><span class="step">3</span> Active policies</h2>
+      <span class="faint">{{ active().length }} active · {{ revoked().length }} revoked</span>
+    </header>
+
+    @for (m of active(); track m.id) {
+      <div class="mandate">
+        <div class="mandate-head">
+          <div class="stack-sm">
+            <div class="row">
+              <span class="badge active">Active</span>
+              <code>{{ m.remote_mandate_id ?? m.id }}</code>
+              @if (m.scenario_id) { <span class="chip">{{ m.scenario_id }}</span> }
+              <span class="faint">confirmed {{ m.confirmed_at | date: 'short' }}</span>
+            </div>
+            <blockquote>“{{ m.instruction }}”</blockquote>
+          </div>
+          <div class="row actions">
+            <button class="btn" (click)="openTighten(m)">Tighten</button>
+            <button class="btn danger" (click)="revoke(m)">Revoke</button>
+          </div>
+        </div>
+
+        <ul class="labels">
+          @for (l of m.rule_labels ?? []; track $index) { <li>{{ l }}</li> }
+          <li>When uncertain: <strong>{{ uncertaintyLabel(m.uncertainty_policy) }}</strong></li>
+        </ul>
+
+        @if (tightenOpen() === m.id) {
+          <div class="tighten stack">
+            <p class="muted">Added checks combine with the existing ones, so they can only restrict further.</p>
+            <div class="tighten-grid">
+              <label class="field">Lower the per-order limit (CHF)
+                <input type="number" min="1" [(ngModel)]="tLimit" />
+              </label>
+              <label class="field">Never allow item categories
+                <input placeholder="e.g. gift_card, cosmetics" [(ngModel)]="tBlock" />
+              </label>
+              <label class="check"><input type="checkbox" [(ngModel)]="tSwiss" /> Only shops based in Switzerland</label>
+              @if (m.uncertainty_policy !== 'decline') {
+                <label class="check"><input type="checkbox" [(ngModel)]="tDecline" /> Decline instead of asking when uncertain</label>
+              }
+            </div>
+            <div class="row"><span class="spacer"></span>
+              <button class="btn" (click)="tightenOpen.set(null)">Cancel</button>
+              <button class="btn primary" (click)="applyTighten(m)" [disabled]="busy()">Apply to new runs</button>
+            </div>
+          </div>
+        }
+
+        <div class="run row">
+          <span class="muted">Let the agent shop:</span>
+          <select [(ngModel)]="runScenario[m.id]" aria-label="Scenario">
+            @for (s of scenarios(); track s.scenario_id) {
+              <option [value]="s.scenario_id">{{ s.scenario_id }} · {{ s.scenario_name }}</option>
+            }
+          </select>
+          <div class="segmented">
+            <button type="button" [class.on]="(runMode[m.id] ?? (liveApi() && m.remote_mandate_id ? 'live' : 'offline')) === 'offline'" (click)="runMode[m.id] = 'offline'">Offline replay</button>
+            <button type="button" [disabled]="!liveApi() || !m.remote_mandate_id" [class.on]="(runMode[m.id] ?? (liveApi() && m.remote_mandate_id ? 'live' : 'offline')) === 'live'" (click)="runMode[m.id] = 'live'"
+                    [attr.title]="liveApi() ? '' : 'Set TEAM_API_KEY on the backend to use the hosted simulator'">Hosted simulator</button>
+          </div>
+          <button class="btn primary" (click)="startRun(m)" [disabled]="busy()">Start run</button>
+        </div>
+
+        <details>
+          <summary class="faint">History ({{ m.audit.length }})</summary>
+          <ul class="audit">
+            @for (a of m.audit; track $index) { <li><span class="faint">{{ a.at | date: 'medium' }}</span> <strong>{{ a.action }}</strong> {{ a.detail }}</li> }
+          </ul>
+        </details>
+      </div>
+    } @empty {
+      <p class="empty">No active policy. Confirm one above to let the agent shop.</p>
+    }
+
+    @if (revoked().length) {
+      <details>
+        <summary class="muted">Revoked policies ({{ revoked().length }})</summary>
+        <ul class="audit">
+          @for (m of revoked(); track m.id) {
+            <li><span class="badge revoked">Revoked</span> <code>{{ m.remote_mandate_id ?? m.id }}</code> “{{ m.instruction }}” <span class="faint">{{ m.revoked_at | date: 'short' }}</span></li>
+          }
+        </ul>
+      </details>
+    }
+  </article>
+</section>
