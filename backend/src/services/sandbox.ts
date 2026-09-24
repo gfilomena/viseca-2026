@@ -71,8 +71,8 @@ export function buildSandboxEvent(offer: PurchaseOffer, m: Mandate & { card_id: 
   if (!itemName) throw new PolicyError('Name the product.');
   if (!offer.merchant_id) throw new PolicyError('Pick a shop.');
   const qty = Math.trunc(Number(offer.quantity));
-  const unitChf = Number(offer.unit_price_chf);
-  const deliveryChf = Number(offer.delivery_fee_chf ?? 0);
+  const unitChf = Number(offer.unit_price);
+  const deliveryChf = Number(offer.delivery_fee ?? 0);
   if (!(qty >= 1 && qty <= 99)) throw new PolicyError('Quantity must be between 1 and 99.');
   if (!(unitChf > 0)) throw new PolicyError('The price must be above zero.');
   if (!(deliveryChf >= 0)) throw new PolicyError('The delivery fee cannot be negative.');

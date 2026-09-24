@@ -117,14 +117,15 @@ export interface PurchaseOffer {
   item_name: string | null;
   item_category: string | null;
   quantity: number;
-  unit_price_chf: number | null;
-  budget_chf: number | null;
+  unit_price: number | null;
+  currency: string;
+  budget: number | null;
   merchant_id: string | null;
   size: string | null;
   customer_device_id: string;
   item_details: string;
   order_returnable: 'true' | 'false' | 'unknown' | 'not_applicable';
-  delivery_fee_chf: number;
+  delivery_fee: number;
   fulfillment_method: 'delivery' | 'digital' | 'pickup';
 }
 

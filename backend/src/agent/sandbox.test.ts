@@ -27,12 +27,12 @@ test('the chat request is structured into a reviewable offer', async () => {
   const r = interpretForMandate(m.id, 'Buy the 27-inch monitor at PixelHarbor for CHF 289');
   assert.equal(r.offer.item_id, 'IT0017');
   assert.equal(r.offer.merchant_id, 'ME0022');
-  assert.equal(r.offer.unit_price_chf, 289);
+  assert.equal(r.offer.unit_price, 289);
   assert.equal(r.offer.customer_device_id, 'DVC-785971'); // the card's most used device
   assert.ok(r.notes.some((n) => /cannot change|can change it|nothing here can change/i.test(n)));
   const budget = interpretForMandate(m.id, 'Get me a 27-inch monitor, up to CHF 500');
-  assert.equal(budget.offer.unit_price_chf, 270); // usual price, within the budget
-  assert.equal(budget.offer.budget_chf, 500);
+  assert.equal(budget.offer.unit_price, 270); // usual price, within the budget
+  assert.equal(budget.offer.budget, 500);
 });
 
 test('an ordinary purchase from the chat is approved, against the confirmed policy only', async () => {
@@ -94,7 +94,7 @@ test('grocery chat purchase within a 20 CHF policy, delivery included', async ()
   const m = await policyFor('SCEN0000');
   const r = interpretForMandate(m.id, 'Order a fresh produce selection at Alpine Basket for CHF 13');
   assert.equal(r.offer.merchant_id, 'ME0001');
-  assert.equal(r.offer.delivery_fee_chf, 6);
+  assert.equal(r.offer.delivery_fee, 6);
   const d = tryToBuy(m.id, r.offer);
   assert.equal(d.billing_amount_chf, 19);
   assert.equal(d.engine_decision, 'approve', d.customer_message);
@@ -120,7 +120,7 @@ test('a product outside the data-pack catalogue is still proposed and can be bou
   assert.equal(r.item, null); // no catalogue match
   assert.equal(r.offer.item_id, null); // not a real IT00xx id yet
   assert.equal(r.offer.item_name, 'Electric Scooter');
-  assert.equal(r.offer.unit_price_chf, 45);
+  assert.equal(r.offer.unit_price, 45);
   assert.ok(r.questions.some((q) => q.includes('Electric Scooter')));
   const d = tryToBuy(m.id, r.offer);
   assert.ok(validateEvent(d.event), JSON.stringify(validateEvent.errors));
@@ -160,10 +160,10 @@ test('repeating the same free-text product is recognised as a duplicate', async 
 
 test('a free-text product still needs a name and a price to try to buy', async () => {
   const m = await policyFor('SCEN0000');
-  await assert.rejects(async () => tryToBuy(m.id, { request_text: 'x', item_id: null, item_name: null, item_category: null, quantity: 1, unit_price_chf: null, budget_chf: null, merchant_id: 'ME0001', size: null, customer_device_id: 'DVC-NEW-SANDBOX', item_details: '', order_returnable: 'unknown', delivery_fee_chf: 0, fulfillment_method: 'delivery' }), /Name the product/);
+  await assert.rejects(async () => tryToBuy(m.id, { request_text: 'x', item_id: null, item_name: null, item_category: null, quantity: 1, unit_price: null, currency: 'CHF', budget: null, merchant_id: 'ME0001', size: null, customer_device_id: 'DVC-NEW-SANDBOX', item_details: '', order_returnable: 'unknown', delivery_fee: 0, fulfillment_method: 'delivery' }), /Name the product/);
   const r = interpretForMandate(m.id, 'Buy a hoverboard at Alpine Basket');
   assert.equal(r.offer.item_name, 'Hoverboard');
-  assert.equal(r.offer.unit_price_chf, null);
+  assert.equal(r.offer.unit_price, null);
   await assert.rejects(async () => tryToBuy(m.id, r.offer), /price must be above zero/);
 });
 
@@ -173,7 +173,7 @@ test('a bare "N <product>" quantity is read, not just "2x"/"2 units" phrasing', 
   assert.equal(r.offer.item_name, 'Drones');
   assert.equal(r.offer.quantity, 2);
   assert.equal(r.offer.item_category, 'electronics'); // "drone" is in the category vocabulary
-  assert.equal(r.offer.unit_price_chf, 300);
+  assert.equal(r.offer.unit_price, 300);
 });
 
 test('category hints cover every category in the data pack, not just the original handful', async () => {
