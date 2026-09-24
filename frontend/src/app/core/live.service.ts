@@ -18,7 +18,9 @@ export class LiveService {
 
   private connect() {
     this.es = new EventSource('/api/stream');
-    this.es.onopen = () => this.connected.set(true);
+    // After a (re)connection, events sent while we were away are lost: bump the version so
+    // every view reloads its state (e.g. a step-up created during a backend restart).
+    this.es.onopen = () => { this.connected.set(true); this.version.update((v) => v + 1); };
     this.es.onerror = () => this.connected.set(false);
     this.es.onmessage = (ev) => {
       this.last.set(JSON.parse(ev.data));

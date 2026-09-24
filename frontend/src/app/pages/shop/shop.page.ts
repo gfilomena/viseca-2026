@@ -4,7 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService, errorText } from '../../core/api.service';
 import { LiveService } from '../../core/live.service';
-import type { Check, DecisionRow, InterpretedRequest, Mandate, PurchaseOffer, ShopOptions } from '../../core/models';
+import { StepUpService } from '../../core/step-up.service';
+import type { Check, DecisionRow, InterpretedRequest, Mandate, PurchaseOffer } from '../../core/models';
 
 type ChatMessage =
   | { id: number; kind: 'user'; text: string }
@@ -49,6 +50,7 @@ export class ShopPage {
   private api = inject(ApiService);
   private live = inject(LiveService);
   protected chat = inject(ShopChatStore);
+  protected stepUps = inject(StepUpService);
   private scroller = viewChild<ElementRef<HTMLElement>>('scroller');
 
   protected readonly suggestions = SUGGESTIONS;
@@ -57,7 +59,6 @@ export class ShopPage {
   protected readonly checkIcon = CHECK_ICON;
 
   protected mandates = signal<Mandate[]>([]);
-  protected options = signal<ShopOptions | null>(null);
   protected decisions = signal<Record<string, DecisionRow>>({});
   protected all = signal<DecisionRow[]>([]);
   protected filter = signal<Filter>('all');
@@ -84,12 +85,6 @@ export class ShopPage {
       this.live.version();
       this.refresh();
     });
-    // Load the shop catalogue for the selected policy's card.
-    effect(() => {
-      const id = this.chat.mandateId();
-      if (!id) { this.options.set(null); return; }
-      this.api.shopOptions(id).then((o) => this.options.set(o)).catch(() => this.options.set(null));
-    });
     // Keep the newest message in view.
     effect(() => {
       this.chat.messages();
@@ -108,8 +103,14 @@ export class ShopPage {
       const map: Record<string, DecisionRow> = {};
       for (const r of all) map[r.authorization_id] = r;
       const shown = this.chat.messages().filter((m) => m.kind === 'decision').map((m) => (m as { authorizationId: string }).authorizationId);
-      const next = { ...this.decisions() };
-      for (const id of shown) if (map[id]) next[id] = { ...next[id], ...map[id], checks: next[id]?.checks ?? map[id].checks };
+      const prev = this.decisions();
+      const next = { ...prev };
+      for (const id of shown) {
+        if (!map[id]) continue;
+        next[id] = { ...next[id], ...map[id], checks: next[id]?.checks ?? map[id].checks };
+        // Tell the story in the chat when a paused purchase gets its answer (modal, inbox or timeout).
+        if (prev[id]?.status === 'pending' && map[id].status !== 'pending') this.chat.push({ kind: 'bot', text: this.outcomeText(map[id]) });
+      }
       this.decisions.set(next);
     } catch { /* the header shows connectivity */ }
   }
@@ -122,16 +123,18 @@ export class ShopPage {
 
   protected useSuggestion(s: string) { this.input.set(s); }
 
-  protected async send() {
-    const text = this.input().trim();
+  protected async send(box?: HTMLInputElement) {
+    // Read the DOM value too: with fast typing the signal may lag one change detection behind.
+    const text = (box?.value ?? this.input()).trim();
     const m = this.mandate();
     if (!text || !m || this.busy()) return;
     this.input.set('');
+    if (box) box.value = '';
     this.chat.push({ kind: 'user', text });
     this.busy.set(true);
     try {
       const data = await this.api.interpret(m.id, text);
-      this.chat.push({ kind: 'bot', text: data.item ? 'Here is the purchase I would make. Check it, change anything, then let me try to buy it.' : 'I need a bit more detail. Pick the product and shop below.' });
+      this.chat.push({ kind: 'bot', text: data.item && data.merchant ? 'Here is the purchase I would make. If it is right, let me try to buy it.' : 'I could not work out the product or the shop. Please describe it again, e.g. “Buy the 27-inch monitor at PixelHarbor for CHF 289”.' });
       this.chat.push({ kind: 'review', data, offer: structuredClone(data.offer), state: 'open' });
     } catch (e) {
       this.chat.push({ kind: 'bot', text: errorText(e), tone: 'error' });
@@ -162,22 +165,17 @@ export class ShopPage {
     }
   }
 
-  protected async resolve(id: string, decision: 'approve' | 'decline') {
-    try {
-      const d = await this.api.resolve(id, decision);
-      this.decisions.update((all) => ({ ...all, [id]: { ...all[id], ...d } }));
-      this.chat.push({ kind: 'bot', text: decision === 'approve' ? 'You approved it: the purchase goes through.' : 'You declined it: nothing was paid.' });
-      this.refresh();
-    } catch (e) {
-      this.chat.push({ kind: 'bot', text: errorText(e), tone: 'error' });
-    }
+  protected decideNow(id: string) { this.stepUps.open(id); }
+
+  private outcomeText(d: DecisionRow) {
+    if (d.status === 'approved') return `You approved it: ${d.merchant_name} is paid ${d.billing_amount_chf.toFixed(2)} CHF.`;
+    if (d.status === 'expired') return 'No answer in time, so nothing was paid.';
+    return d.resolved_by === 'revocation' ? 'Declined: you revoked the wallet policy.' : 'You declined it: nothing was paid.';
   }
 
   protected newChat() { this.chat.clear(); }
 
   // ---- helpers for the template ------------------------------------------
-  protected itemName(id: string | null) { return this.options()?.items.find((i) => i.item_id === id)?.item_name ?? '—'; }
-  protected merchantOf(id: string | null) { return this.options()?.merchants.find((m) => m.merchant_id === id) ?? null; }
   protected total(o: PurchaseOffer) { return (Number(o.unit_price_chf) || 0) * (Number(o.quantity) || 0) + (Number(o.delivery_fee_chf) || 0); }
   protected secondsLeft(d: DecisionRow) {
     return d.human_deadline_at ? Math.max(0, Math.round((Date.parse(d.human_deadline_at) - this.now()) / 1000)) : null;

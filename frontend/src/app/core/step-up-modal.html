@@ -1,0 +1,59 @@
+<dialog #dialog class="step-up" (cancel)="onCancel($event)" aria-labelledby="step-up-title" aria-describedby="step-up-why">
+  @if (d(); as d) {
+    <header>
+      <span class="badge step_up">Your decision is needed</span>
+      <span class="spacer"></span>
+      @if (secondsLeft() !== null) { <span class="timer" [class.low]="secondsLeft()! <= 30">{{ secondsLeft() }}s left</span> }
+    </header>
+
+    <h2 id="step-up-title">Pay {{ d.billing_amount_chf | currency: 'CHF ' }} to {{ d.merchant_name }}?</h2>
+    @if (d.currency && d.currency !== 'CHF') { <p class="faint">Charged {{ d.currency }} {{ d.amount | number: '1.2-2' }}, converted at the fixed rate.</p> }
+    <p class="muted">Your shopping agent wants to buy this. Wallet control paused it instead of approving it, because:</p>
+
+    <ul id="step-up-why" class="reasons">
+      @for (c of reasons(); track $index) {
+        <li [class]="c.status"><strong>{{ c.label }}</strong> {{ c.detail }}</li>
+      } @empty {
+        <li>{{ d.customer_message }}</li>
+      }
+    </ul>
+
+    @if (d.event?.authorization?.items; as items) {
+      <div class="basket">
+        @for (l of items; track l.line_no) {
+          <div class="line">
+            <div class="row"><strong>{{ l.quantity }}× {{ l.item_name }}</strong><span class="chip">{{ l.item_category }}</span><span class="spacer"></span>{{ l.currency }} {{ l.unit_price | number: '1.2-2' }}</div>
+            @if (l.item_details) {
+              <p class="shop-text" [class.flagged]="flagged()"><span class="faint">Shop's text (untrusted):</span> {{ l.item_details }}</p>
+            }
+          </div>
+        }
+      </div>
+    } @else {
+      <p class="faint">{{ (d.items ?? []).join(', ') }}</p>
+    }
+
+    @if (flagged()) {
+      <div class="callout error">The shop's text tries to instruct the payment system. It was ignored: only you can approve this.</div>
+    }
+    @for (i of d.impact ?? []; track i.rule) {
+      @if (i.breaches) {
+        <div class="callout warn">Approving brings your {{ i.rule }} total to {{ i.total_if_approved_chf | currency: 'CHF ' }} (limit {{ i.limit_chf | currency: 'CHF ' }}).</div>
+      }
+    }
+
+    <label class="field">Note (optional)
+      <input [(ngModel)]="note" placeholder="Why you approve or decline" [disabled]="s.busy()" />
+    </label>
+
+    @if (s.error()) { <div class="callout error" role="alert">{{ s.error() }}</div> }
+
+    <footer>
+      <button type="button" class="btn link" (click)="close()" [disabled]="s.busy()">Close</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn decline" (click)="answer('decline')" [disabled]="s.busy()">Decline</button>
+      <button type="button" class="btn approve" (click)="answer('approve')" [disabled]="s.busy()">Approve</button>
+    </footer>
+    <p class="faint small">Closing keeps it waiting. If you do not answer in time the purchase is not made.</p>
+  }
+</dialog>

@@ -98,6 +98,8 @@ export async function routes(app: FastifyInstance) {
   });
   app.post<{ Params: { id: string }; Body: { decision: 'approve' | 'decline'; note?: string } }>('/api/decisions/:id/resolve', async (req, reply) => {
     if (!['approve', 'decline'].includes(req.body?.decision)) return reply.code(400).send({ error: 'decision must be approve or decline' });
+    // Audit trail: a human answer must come from a real customer action.
+    console.log(`[resolve] ${req.params.id} ${req.body.decision} ip=${req.ip} origin=${req.headers.origin ?? '-'} referer=${req.headers.referer ?? '-'} ua=${(req.headers['user-agent'] ?? '-').slice(0, 80)}`);
     try { return await resolveStepUp(req.params.id, req.body.decision, req.body.note); } catch (e) { return fail(reply, e); }
   });
 

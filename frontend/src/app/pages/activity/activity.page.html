@@ -36,20 +36,13 @@
             @if (hasInjection(p)) {
               <div class="callout error">The shop's text tried to instruct the payment system. It was ignored; your limits still apply.</div>
             }
-            @for (i of p.impact ?? []; track i.rule) {
-              @if (i.breaches) {
-                <div class="callout warn">Approving now would bring your {{ i.rule }} total to {{ i.total_if_approved_chf | currency: 'CHF ' }} (limit {{ i.limit_chf | currency: 'CHF ' }}), because other orders were approved meanwhile.</div>
-              }
-            }
-            <input placeholder="Optional note (e.g. why)" [(ngModel)]="notes[p.authorization_id]" />
             <div class="row">
               <button class="btn sm" (click)="open(p)">Details</button>
               <span class="faint">
                 @if (secondsLeft(p) !== null) { {{ secondsLeft(p) }}s left }
               </span>
               <span class="spacer"></span>
-              <button class="btn decline" (click)="resolve(p, 'decline')">Decline</button>
-              <button class="btn approve" (click)="resolve(p, 'approve')">Approve</button>
+              <button class="btn primary" (click)="stepUps.open(p.authorization_id)">Decide</button>
             </div>
           </div>
         }
@@ -84,7 +77,7 @@
           </thead>
           <tbody>
             @for (row of rows(); track row.authorization_id) {
-              <tr class="clickable" [class.selected]="selected()?.authorization_id === row.authorization_id" (click)="open(row)">
+              <tr class="clickable" [class.selected]="selected()?.authorization_id === row.authorization_id" (click)="open(row); row.status === 'pending' && stepUps.open(row.authorization_id)">
                 <td class="faint">{{ row.replay_order }}</td>
                 <td class="nowrap">{{ row.sim_timestamp | date: 'MMM d, HH:mm' : 'UTC' }}</td>
                 <td>{{ row.merchant_name }}</td>

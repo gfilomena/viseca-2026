@@ -13,3 +13,6 @@ BUILD ✅ · VERIFY ✅ (28 tests, re-seed from resource/data verified in UI) ·
 
 ## Shop chat home page (simulated agent → wallet control) + all-transactions table — feat/shop-chat
 DEFINE ✅ (brief re-read: control independent of agent, untrusted shop text) · PLAN ✅ · BUILD ✅ · VERIFY ✅ (36 tests, UI flow in browser, mobile width) · REVIEW ⬜ · SHIP ✅ (PR + merge on fork)
+
+## Step-up modal on click + read-only purchase review — feat/step-up-modal
+DEFINE ✅ · BUILD ✅ · VERIFY ✅ (36 tests; browser: no auto-open, row click opens, Close keeps pending, Decline, read-only review, Enter to send) · SHIP ✅ (PR + merge on fork)
