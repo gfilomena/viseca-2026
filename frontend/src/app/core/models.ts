@@ -123,6 +123,9 @@ export interface OfferMerchant { merchant_id: string; merchant_name: string; mer
 export interface PurchaseOffer {
   request_text: string;
   item_id: string | null;
+  /** Always populated once a product is recognised, catalogued or not. */
+  item_name: string | null;
+  item_category: string | null;
   quantity: number;
   unit_price_chf: number | null;
   budget_chf: number | null;

@@ -50,7 +50,7 @@
                   }
 
                   <dl class="summary">
-                    <div><dt>Product</dt><dd>{{ r.data.item?.item_name ?? 'Not found' }} <span class="faint">{{ r.data.item?.item_category }}</span></dd></div>
+                    <div><dt>Product</dt><dd>{{ r.offer.item_name ?? 'Not found' }} <span class="faint">{{ r.offer.item_category }}{{ r.data.item ? '' : ' · not in catalogue' }}</span></dd></div>
                     <div><dt>Quantity</dt><dd>{{ r.offer.quantity }}</dd></div>
                     <div><dt>Price</dt><dd>{{ r.offer.unit_price_chf | currency: 'CHF ' }} per unit</dd></div>
                     <div><dt>Delivery</dt><dd>{{ r.offer.fulfillment_method === 'digital' ? 'Digital' : (r.offer.delivery_fee_chf | currency: 'CHF ') }}</dd></div>
@@ -63,7 +63,7 @@
                     <div class="row">
                       <span class="spacer"></span>
                       <button class="btn" (click)="cancel(msg)">Cancel</button>
-                      <button class="btn primary" (click)="tryToBuy(r)" [disabled]="busy() || !r.offer.item_id || !r.offer.merchant_id">Try to buy</button>
+                      <button class="btn primary" (click)="tryToBuy(r)" [disabled]="busy() || !r.offer.item_name || !r.offer.unit_price_chf || !r.offer.merchant_id">Try to buy</button>
                     </div>
                   }
                 </div>

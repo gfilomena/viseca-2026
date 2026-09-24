@@ -121,9 +121,16 @@ The home page is a chat with a **simulated shopping agent**, to try wallet contr
    policy applies and is shown read-only. Then type a request, e.g.
    *"Buy the 27-inch monitor at PixelHarbor for CHF 289"*.
 2. **Review**: the agent (`backend/src/agent/shopping-agent.ts`) shows, read-only, what it understood
-   — catalogue product, quantity, price, delivery, shop and total — plus any doubt (e.g. a shop name
-   that imitates one you know). The chat is deliberately minimal: no suggested products and no extra
-   options to tweak. If it is not right, cancel and ask again. The customer's wallet policy alone decides.
+   — product, quantity, price, delivery, shop and total — plus any doubt (e.g. a shop name that
+   imitates one you know). The chat is deliberately minimal: no suggested products and no extra options
+   to tweak. If it is not right, cancel and ask again. The customer's wallet policy alone decides.
+   The agent is **not limited to the data pack's 66-item catalogue** — it will propose whatever product
+   the customer names. A catalogue match gets a real item id, its exact category and a reference price;
+   anything else gets a name-derived id, a best-effort category guess, and a price taken from what the
+   customer stated (marked *"not in catalogue"* in the review, so the guess is never hidden). Either way
+   wallet control decides the same way: a rule such as "only the 27-inch monitor" or "only groceries"
+   applies identically to a catalogue product and a free-text one — it is never bypassed by asking for
+   something outside the catalogue.
 3. **Try to buy**: the agent submits it as a schema-valid authorization event and wallet control
    answers `approve`, `decline` or `step_up`, with the checks and evidence.
 

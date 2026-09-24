@@ -114,3 +114,56 @@ test('revoking the policy stops the chat and declines what is waiting', async ()
   assert.throws(() => tryToBuy(m.id, r.offer), /revoked/);
   assert.throws(() => interpretForMandate(m.id, 'Buy shoes'), /revoked/);
 });
+
+test('a product outside the data-pack catalogue is still proposed and can be bought', async () => {
+  const m = await policyFor('SCEN0000'); // "Buy one ordinary grocery item... Ask me when uncertain."
+  const r = interpretForMandate(m.id, 'Buy an electric scooter at Alpine Basket for CHF 45');
+  assert.equal(r.item, null); // no catalogue match
+  assert.equal(r.offer.item_id, null); // not a real IT00xx id yet
+  assert.equal(r.offer.item_name, 'Electric Scooter');
+  assert.equal(r.offer.unit_price_chf, 45);
+  assert.ok(r.questions.some((q) => q.includes('Electric Scooter')));
+  const d = tryToBuy(m.id, r.offer);
+  assert.ok(validateEvent(d.event), JSON.stringify(validateEvent.errors));
+  const line = d.event.authorization.items[0];
+  assert.equal(line.item_name, 'Electric Scooter');
+  assert.match(line.item_id, /^FREE-/);
+  // The agent proposed it freely (no "not in the catalogue" block), but wallet control still applies
+  // the customer's rule: the guessed category (sporting_goods) is not "groceries", so it is declined
+  // outright — never silently approved just because it fell outside the fixed catalogue.
+  assert.equal(d.engine_decision, 'decline');
+  assert.ok(d.reason_codes.includes('item_category_not_allowed'));
+});
+
+test('wallet control still enforces item-specific rules on a free-text product', async () => {
+  // SCEN0004: "the 27-inch monitor I chose ... from a seller I have bought from before". Only IT0017 is allowed.
+  const m = await policyFor('SCEN0004');
+  const r = interpretForMandate(m.id, 'Buy a garden hose at PixelHarbor for CHF 30');
+  assert.equal(r.item, null);
+  assert.equal(r.offer.item_name, 'Garden Hose');
+  const d = tryToBuy(m.id, r.offer);
+  assert.equal(d.engine_decision, 'decline');
+  assert.ok(d.reason_codes.includes('item_not_requested'));
+});
+
+test('repeating the same free-text product is recognised as a duplicate', async () => {
+  // A policy with no item/category rule, so an unusual product can be approved on its own facts.
+  const draft = createDraft('Spend up to CHF 50 per order. Ask me when uncertain.', 'SCEN0000');
+  const m = await confirmDraft(draft.id);
+  const r = interpretForMandate(m.id, 'Buy a garden gnome at Alpine Basket for CHF 15');
+  const first = tryToBuy(m.id, r.offer);
+  assert.equal(first.engine_decision, 'approve', first.customer_message);
+  const second = tryToBuy(m.id, r.offer);
+  assert.equal(first.event.authorization.items[0].item_id, second.event.authorization.items[0].item_id);
+  assert.equal(second.engine_decision, 'decline');
+  assert.ok(second.reason_codes.includes('duplicate_order'));
+});
+
+test('a free-text product still needs a name and a price to try to buy', async () => {
+  const m = await policyFor('SCEN0000');
+  await assert.rejects(async () => tryToBuy(m.id, { request_text: 'x', item_id: null, item_name: null, item_category: null, quantity: 1, unit_price_chf: null, budget_chf: null, merchant_id: 'ME0001', size: null, customer_device_id: 'DVC-NEW-SANDBOX', item_details: '', order_returnable: 'unknown', delivery_fee_chf: 0, fulfillment_method: 'delivery' }), /Name the product/);
+  const r = interpretForMandate(m.id, 'Buy a hoverboard at Alpine Basket');
+  assert.equal(r.offer.item_name, 'Hoverboard');
+  assert.equal(r.offer.unit_price_chf, null);
+  await assert.rejects(async () => tryToBuy(m.id, r.offer), /price must be above zero/);
+});
