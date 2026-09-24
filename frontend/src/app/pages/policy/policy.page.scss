@@ -28,3 +28,5 @@ blockquote { margin: 0; color: var(--ink-2); font-style: italic; max-width: 80ch
 .tighten-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: end; }
 .check { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 .check input { width: auto; }
+
+.chip.model { background: var(--accent-soft); color: var(--accent); border-color: #c7d5f7; }

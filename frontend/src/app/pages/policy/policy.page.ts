@@ -35,7 +35,12 @@ export class PolicyPage {
 
   protected selectedScenario = computed(() => this.scenarios().find((s) => s.scenario_id === this.scenarioId()));
   protected active = computed(() => this.mandates().filter((m) => m.status === 'active'));
-  protected revoked = computed(() => this.mandates().filter((m) => m.status === 'revoked'));
+  protected revoked = computed(() => this.mandates().filter((m) => m.status === 'revoked' || m.status === 'superseded'));
+  /** Active policies on the same card as the draft: confirming the draft replaces them. */
+  protected replaces = computed(() => {
+    const d = this.draft();
+    return d?.card_id ? this.mandates().filter((m) => m.status === 'active' && m.card_id === d.card_id && m.id !== d.id) : [];
+  });
 
   // Per-mandate UI state for running and tightening.
   protected runScenario: Record<string, string> = {};
@@ -115,6 +120,8 @@ export class PolicyPage {
   protected confirm() {
     const d = this.draft();
     if (!d) return;
+    const replacing = this.replaces();
+    if (replacing.length && !confirm(`Confirming replaces the active policy for card ${d.card_id}. The old one is withdrawn and purchases waiting under it are declined. Continue?`)) return;
     this.guard(async () => {
       const m = await this.api.confirm(d.id);
       this.draft.set(null);
@@ -163,6 +170,8 @@ export class PolicyPage {
     if (!confirm('Revoke this wallet policy? The agent loses permission to spend, and purchases waiting for you are declined.')) return;
     this.guard(async () => { await this.api.revoke(m.id); this.reload(); });
   }
+
+  protected fromModel(source: string) { return source.startsWith('model:'); }
 
   protected uncertaintyLabel(p: UncertaintyPolicy) { return UNCERTAINTY.find((u) => u.value === p)?.label ?? p; }
 }

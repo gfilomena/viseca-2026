@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import type { CardProfile, DecisionRow, HardRule, Health, InterpretedRequest, Mandate, PurchaseOffer, Run, Scenario, ShopOptions, UncertaintyPolicy } from './models';
+import type { CardProfile, DecisionRow, HardRule, Health, InterpretedRequest, Mandate, PlatformState, PurchaseOffer, Run, Scenario, ShopOptions, UncertaintyPolicy } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -11,6 +11,8 @@ export class ApiService {
     firstValueFrom(this.http.request<T>(method, `/api${url}`, { body }));
 
   health = () => this.get<Health>('/health');
+  syncPlatform = () => this.send<PlatformState>('POST', '/platform/sync');
+  resetTeam = () => this.send<{ platform: string; local: Record<string, number> }>('POST', '/team/reset');
   scenarios = () => this.get<Scenario[]>('/scenarios');
   customers = () => this.get<{ customer_id: string; persona_name: string; home_region: string }[]>('/customers');
   attempts = (scenarioId: string) => this.get<Record<string, unknown>[]>(`/scenarios/${scenarioId}/attempts`);

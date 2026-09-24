@@ -16,7 +16,7 @@ export interface RuleExplanation { rule: HardRule; text: string; source: string 
 export interface Mandate {
   id: string;
   remote_mandate_id: string | null;
-  status: 'draft' | 'active' | 'revoked';
+  status: 'draft' | 'active' | 'revoked' | 'superseded';
   scenario_id: string | null;
   card_id: string | null;
   customer_id?: string | null;
@@ -96,7 +96,14 @@ export interface DecisionRow {
 
 export interface PackReport { ok: boolean; verified_at: string; pack_version: string | null; errors: string[]; warnings: string[]; checks: { name: string; ok: boolean; detail: string }[] }
 
-export interface Health { ok: boolean; engine: string; live: boolean; pack: PackReport | null; worker: { running: boolean; lastError: string | null; handled: number }; data: Record<string, number> }
+export interface PlatformState {
+  checked_at: string | null; reachable: boolean | null; live: boolean; bootstrap_ok: boolean | null;
+  human_window_seconds: number; human_window_source: 'default' | 'bootstrap';
+  decision_deadline_seconds: number; decision_deadline_source: 'default' | 'bootstrap';
+  local_pack_version: string | null; remote_pack_version: string | null; pack_match: boolean | null; error: string | null;
+}
+
+export interface Health { ok: boolean; engine: string; live: boolean; pack: PackReport | null; platform?: PlatformState; policy_llm?: { enabled: boolean; model: string }; worker: { running: boolean; lastError: string | null; handled: number }; data: Record<string, number> }
 
 export interface CardProfile {
   card: Record<string, string | number>;

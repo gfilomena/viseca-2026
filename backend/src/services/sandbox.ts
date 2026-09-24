@@ -18,7 +18,8 @@ import { approvalImpact, recordDecision, type DecisionRecord } from './decisions
 function activeMandateWithCard(mandateId: string): Mandate & { card_id: string } {
   const m = getMandate(mandateId);
   if (m.status !== 'active') {
-    throw new PolicyError(m.status === 'revoked' ? 'This wallet policy was revoked, so the agent may not buy anything with it.' : 'Confirm the wallet policy first.', 409);
+    throw new PolicyError(m.status === 'revoked' ? 'This wallet policy was revoked, so the agent may not buy anything with it.'
+      : m.status === 'superseded' ? 'This wallet policy was replaced by a newer one.' : 'Confirm the wallet policy first.', 409);
   }
   if (!m.card_id) throw new PolicyError('This policy is not linked to a card. Create it from one of the example customers.', 409);
   return m as Mandate & { card_id: string };

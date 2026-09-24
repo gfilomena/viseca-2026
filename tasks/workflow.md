@@ -25,3 +25,6 @@ BUILD ✅ · VERIFY ✅ (36 tests, build, browser) · SHIP ✅ (PR + merge on fo
 
 ## Shop: 'Shopping for' selector at the top with all users — feat/shop-for-selector
 BUILD ✅ · VERIFY ✅ (tsc, build, browser: 20 users, no-policy user, policy user) · SHIP ✅ (PR + merge on fork)
+
+## Audit fixes P1/P2 + optional policy LLM — feat/audit-fixes
+DEFINE ✅ (audit) · PLAN ✅ · BUILD ✅ · VERIFY ✅ (49 tests, build, browser: platform card, replace warning) · REVIEW ⬜ · SHIP ✅ (PR + merge on fork)

@@ -6,13 +6,14 @@ import { compileInstruction, describeRule, type RuleExplanation } from '../polic
 import { api } from '../remote/client.ts';
 import { catalogueItems } from './catalog.ts';
 import { parsePreferences } from '../engine/preferences.ts';
+import { llmConfig, reviewDraft } from '../policy/llm.ts';
 import { publish } from './bus.ts';
 
 export interface Mandate {
   id: string;
   remote_draft_id: string | null;
   remote_mandate_id: string | null;
-  status: 'draft' | 'active' | 'revoked';
+  status: 'draft' | 'active' | 'revoked' | 'superseded';
   scenario_id: string | null;
   card_id: string | null;
   instruction: string;
@@ -25,6 +26,8 @@ export interface Mandate {
   created_at: string;
   confirmed_at: string | null;
   revoked_at: string | null;
+  /** Set on confirmation: the policies this one replaced. */
+  replaced_ids?: string[];
 }
 
 export class PolicyError extends Error {
@@ -89,6 +92,28 @@ export function createDraft(instruction: string, scenarioId: string | null = nul
   return m;
 }
 
+/**
+ * Draft + optional language-model review (POLICY_LLM=on). The review can only add
+ * clearly-marked rules and questions; on any failure the built-in draft is kept.
+ */
+export async function createReviewedDraft(instruction: string, scenarioId: string | null = null): Promise<Mandate> {
+  const m = createDraft(instruction, scenarioId);
+  if (!llmConfig.enabled) return m;
+  const merchantCategories = (getDb().prepare('SELECT DISTINCT merchant_category AS c FROM merchants ORDER BY c').all() as { c: string }[]).map((r) => r.c);
+  const { draft, note } = await reviewDraft({
+    instruction: m.instruction, hard_rules: m.hard_rules, uncertainty_policy: m.uncertainty_policy, guidance: m.guidance,
+    open_questions: m.open_questions, explanations: m.explanations,
+    intents: { session_strict: false, requested_item_ids: [], requested_item_names: [] },
+  }, { catalogue: catalogueItems(), merchantCategories });
+  m.hard_rules = draft.hard_rules;
+  m.explanations = draft.explanations;
+  m.open_questions = draft.open_questions;
+  m.guidance = draft.guidance;
+  m.audit.push({ at: now(), action: 'model review', detail: note });
+  save(m);
+  return m;
+}
+
 /** While still a draft, the customer may freely edit the interpreted checks. */
 export function editDraft(id: string, patch: { hard_rules?: HardRule[]; uncertainty_policy?: UncertaintyPolicy }): Mandate {
   const m = getMandate(id);
@@ -121,7 +146,31 @@ export async function confirmDraft(id: string): Promise<Mandate> {
   m.confirmed_at = now();
   m.audit.push({ at: now(), action: 'confirmed', detail: m.remote_mandate_id ? `Active as ${m.remote_mandate_id}` : 'Active (local)' });
   save(m);
+  m.replaced_ids = await supersedeOthers(m);
   return m;
+}
+
+/**
+ * One card, one active wallet policy: confirming a new one withdraws the previous
+ * permission (revoked on the platform, 'superseded' here). Returns the replaced ids.
+ */
+async function supersedeOthers(m: Mandate): Promise<string[]> {
+  if (!m.card_id) return [];
+  const others = listMandates().filter((o) => o.id !== m.id && o.status === 'active' && o.card_id === m.card_id);
+  for (const o of others) {
+    let note = '';
+    if (liveEnabled() && o.remote_mandate_id) {
+      try { await api(`/v1/mandates/${o.remote_mandate_id}`, { method: 'DELETE' }); }
+      catch (e) { note = ` (platform revocation failed: ${(e as Error).message.slice(0, 120)})`; }
+    }
+    o.status = 'superseded';
+    o.revoked_at = now();
+    o.audit.push({ at: now(), action: 'superseded', detail: `Replaced by ${m.remote_mandate_id ?? m.id}${note}` });
+    save(o);
+    m.audit.push({ at: now(), action: 'replaced', detail: `Replaced ${o.remote_mandate_id ?? o.id} for card ${m.card_id}` });
+  }
+  if (others.length) save(m);
+  return others.map((o) => o.id);
 }
 
 /**
@@ -152,7 +201,7 @@ export async function tighten(id: string, patch: { add_rules?: HardRule[]; uncer
 
 export async function revoke(id: string): Promise<Mandate> {
   const m = getMandate(id);
-  if (m.status === 'revoked') return m;
+  if (m.status === 'revoked' || m.status === 'superseded') return m;
   if (liveEnabled() && m.remote_mandate_id) await api(`/v1/mandates/${m.remote_mandate_id}`, { method: 'DELETE' });
   m.status = 'revoked';
   m.revoked_at = now();
