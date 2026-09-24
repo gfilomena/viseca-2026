@@ -148,3 +148,6 @@ CREATE TABLE IF NOT EXISTS app_meta (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL                -- JSON
 );
+
+-- One local record per hosted run, whoever sees it first (startRun or the worker).
+CREATE UNIQUE INDEX IF NOT EXISTS ux_runs_remote ON runs(remote_run_id) WHERE remote_run_id IS NOT NULL;

@@ -44,6 +44,22 @@ export function setRunStatus(id: string, status: Run['status'], error: string | 
   publish({ type: 'run', run_id: id });
 }
 
+/**
+ * Records a hosted run started from this app. The worker may already have seen its
+ * first event and created the record (the poll can return before the POST does);
+ * in that case adopt that record so decisions and the UI point at the same run.
+ */
+export function registerLiveRun(remoteRunId: string, run: Run): Run {
+  const existing = getDb().prepare('SELECT * FROM runs WHERE remote_run_id = ?').get(remoteRunId);
+  if (existing) {
+    getDb().prepare('UPDATE runs SET mandate_id = ?, scenario_id = ? WHERE remote_run_id = ?').run(run.mandate_id, run.scenario_id, remoteRunId);
+    publish({ type: 'run', run_id: (existing as any).id });
+    return getRun(remoteRunId);
+  }
+  insertRun({ ...run, remote_run_id: remoteRunId });
+  return getRun(remoteRunId);
+}
+
 /** Live runs discovered from the poll envelope (e.g. started outside this app). */
 export function ensureLiveRun(remoteRunId: string, event: AuthorizationEvent): Run {
   const existing = getDb().prepare('SELECT * FROM runs WHERE remote_run_id = ?').get(remoteRunId);
@@ -149,9 +165,9 @@ export async function startRun(scenarioId: string, mandateId: string, mode: 'off
     if (!liveEnabled()) throw new PolicyError('Live mode needs TEAM_API_KEY on the backend.', 400);
     if (!m.remote_mandate_id) throw new PolicyError('This policy was confirmed offline; create and confirm a new one with the API key configured.', 409);
     const res = await api('/v1/scenario-runs', { method: 'POST', body: { scenario_id: scenarioId, mandate_id: m.remote_mandate_id } });
-    run.remote_run_id = res.data?.run_id ?? res.data?.data?.run_id;
-    insertRun(run);
-    return run; // the worker receives and answers the events
+    const remoteRunId = res.data?.run_id ?? res.data?.data?.run_id;
+    if (!remoteRunId) throw new PolicyError('The simulator did not return a run_id.', 502);
+    return registerLiveRun(remoteRunId, run); // the worker receives and answers the events
   }
 
   insertRun(run);
@@ -182,9 +198,17 @@ export async function resolveStepUp(authorizationId: string, decision: 'approve'
   const run = getRun(d.run_id);
   const message = note?.trim() || (decision === 'approve' ? 'The customer confirmed this purchase.' : 'The customer rejected this purchase.');
   if (run.mode === 'live') {
-    await api(`/v1/authorizations/${encodeURIComponent(authorizationId)}/resolve`, {
-      method: 'POST', body: { decision, customer_message: message, evidence: d.evidence.slice(0, 10) },
-    });
+    try {
+      await api(`/v1/authorizations/${encodeURIComponent(authorizationId)}/resolve`, {
+        method: 'POST', body: { decision, customer_message: message, evidence: d.evidence.slice(0, 10) },
+      });
+    } catch (e) {
+      // Most likely the platform already closed it (e.g. the human window ran out): sync and explain.
+      await reconcileLive({ only: authorizationId, force: true });
+      const now = getDecision(authorizationId)!;
+      if (now.status !== 'pending') throw new PolicyError(`The simulator had already closed this purchase as ${now.status}; your answer was not applied.`, 409);
+      throw e;
+    }
   }
   return setResolution(authorizationId, decision === 'approve' ? 'approved' : 'declined', 'customer', message);
 }
@@ -194,6 +218,60 @@ export function expireStalePending() {
   const rows = getDb().prepare(`SELECT d.authorization_id FROM decisions d JOIN runs r ON r.id = d.run_id
     WHERE d.status = 'pending' AND r.mode = 'offline' AND d.human_deadline_at < ?`).all(new Date().toISOString()) as { authorization_id: string }[];
   for (const r of rows) setResolution(r.authorization_id, 'expired', 'timeout', 'No answer from the customer in time; the purchase was not made.');
+}
+
+type PlatformAuthorization = { authorization_id?: string; id?: string; status?: string; final_status?: string; decision?: string };
+export type PlatformLister = () => Promise<PlatformAuthorization[]>;
+
+const defaultLister: PlatformLister = async () => {
+  const res = await api('/v1/authorizations');
+  const d: any = res.data;
+  const list = Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : Array.isArray(d?.authorizations) ? d.authorizations : Array.isArray(d?.data?.authorizations) ? d.data.authorizations : [];
+  return list as PlatformAuthorization[];
+};
+
+/** Maps a platform status onto ours; null while the platform still considers it open. */
+export function mapPlatformStatus(raw: string | undefined): 'approved' | 'declined' | 'expired' | null {
+  const s = (raw ?? '').toLowerCase();
+  if (['approved', 'approve', 'resolved_approved'].includes(s)) return 'approved';
+  if (['declined', 'decline', 'rejected', 'cancelled', 'canceled', 'resolved_declined', 'revoked'].includes(s)) return 'declined';
+  if (['expired', 'timeout', 'timed_out'].includes(s)) return 'expired';
+  return null;
+}
+
+const GRACE_MS = 30_000;
+
+/**
+ * Keeps live decisions in line with the hosted platform:
+ * - step-ups whose human window has passed, and
+ * - decisions whose submission failed (they are not counted as spend meanwhile).
+ * If the platform cannot tell us, a step-up is closed as expired after a grace period:
+ * an unanswered purchase is never treated as approved.
+ */
+export async function reconcileLive(opts: { only?: string; force?: boolean; lister?: PlatformLister } = {}): Promise<number> {
+  const now = Date.now();
+  const rows = (getDb().prepare(`SELECT d.authorization_id, d.status, d.human_deadline_at, d.remote_error FROM decisions d JOIN runs r ON r.id = d.run_id
+    WHERE r.mode = 'live' AND (d.status = 'pending' OR d.remote_error IS NOT NULL)`).all() as { authorization_id: string; status: string; human_deadline_at: string | null; remote_error: string | null }[])
+    .filter((r) => (opts.only ? r.authorization_id === opts.only : true))
+    .filter((r) => opts.force || r.remote_error || (r.human_deadline_at && Date.parse(r.human_deadline_at) < now));
+  if (!rows.length) return 0;
+
+  let platform: PlatformAuthorization[] | null = null;
+  try { platform = await (opts.lister ?? defaultLister)(); } catch { platform = null; }
+  let changed = 0;
+  for (const r of rows) {
+    const p = platform?.find((x) => (x.authorization_id ?? x.id) === r.authorization_id);
+    const mapped = mapPlatformStatus(p?.final_status ?? p?.status ?? p?.decision);
+    if (mapped && (mapped !== r.status || r.remote_error)) {
+      setResolution(r.authorization_id, mapped, 'platform', `Final status reported by the simulator: ${mapped}.`);
+      getDb().prepare('UPDATE decisions SET remote_error = NULL WHERE authorization_id = ?').run(r.authorization_id);
+      changed++;
+    } else if (!mapped && r.status === 'pending' && r.human_deadline_at && Date.parse(r.human_deadline_at) + GRACE_MS < now) {
+      setResolution(r.authorization_id, 'expired', 'timeout', 'No answer in time and no final status from the simulator; the purchase is treated as not made.');
+      changed++;
+    }
+  }
+  return changed;
 }
 
 /** Revoking a policy withdraws consent for anything still waiting in offline runs. */

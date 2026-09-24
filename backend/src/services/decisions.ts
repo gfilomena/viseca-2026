@@ -58,7 +58,9 @@ export function listDecisions(filter: { run_id?: string; status?: string } = {})
 export function priorDecisions(runId: string, beforeSim: string, excludeId: string): PriorDecision[] {
   return getDb().prepare(
     `SELECT authorization_id, sim_timestamp, merchant_id, billing_amount_chf, item_signature, customer_device_id, status
-       FROM decisions WHERE run_id = ? AND authorization_id != ? AND sim_timestamp <= ? ORDER BY sim_timestamp`,
+       FROM decisions WHERE run_id = ? AND authorization_id != ? AND sim_timestamp <= ?
+        AND remote_error IS NULL -- a live answer the platform never received does not count as spend
+      ORDER BY sim_timestamp`,
   ).all(runId, excludeId, beforeSim) as unknown as PriorDecision[];
 }
 
@@ -138,7 +140,7 @@ export interface ApprovalImpact { rule: string; limit_chf: number; total_if_appr
 export function approvalImpact(d: DecisionRecord): ApprovalImpact[] {
   const fx: Record<string, number> = fxRates();
   const t = Date.parse(d.sim_timestamp);
-  const approved = listDecisions({ run_id: d.run_id }).filter((x) => x.status === 'approved' && x.authorization_id !== d.authorization_id);
+  const approved = listDecisions({ run_id: d.run_id }).filter((x) => x.status === 'approved' && !x.remote_error && x.authorization_id !== d.authorization_id);
   return d.event.mandate.hard_rules
     .filter((r) => r.field === 'authorization.billing_amount_chf' && r.scope === 'period' && typeof r.value === 'number')
     .map((r) => {

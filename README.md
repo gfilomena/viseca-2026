@@ -41,6 +41,13 @@ npm test                 # replays all 45 purchases + policy/HITL/revocation tes
 Offline replay works without a key. To use the hosted simulator, start the backend with
 `TEAM_API_KEY=<key> npm run backend`: confirmed policies are mirrored to `/v1/mandates`,
 and a long-polling worker answers `/v1/decision-requests/next` within the 8-second deadline.
+Every 5 s the backend reconciles live step-ups whose human window has passed, and answers whose
+submission failed, with `/v1/authorizations`; until then a failed submission is not counted as
+spend, and a step-up the platform stays silent about is closed as expired (never approved).
+
+The API has no login (single-customer prototype). It listens on `127.0.0.1` (`HOST` to change) and
+only accepts browser requests from the UI origin (`CORS_ORIGINS`, default `http://localhost:4200`);
+requests carrying any other `Origin` are refused, so another website cannot approve a step-up.
 
 ## How a decision is made
 

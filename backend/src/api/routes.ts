@@ -101,7 +101,8 @@ export async function routes(app: FastifyInstance) {
   // --- Server-sent events for the UI ----------------------------------------
   app.get('/api/stream', (req, reply) => {
     reply.hijack();
-    reply.raw.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no', 'Access-Control-Allow-Origin': '*' });
+    reply.raw.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no',
+      ...(req.headers.origin && config.corsOrigins.includes(req.headers.origin) ? { 'Access-Control-Allow-Origin': req.headers.origin, Vary: 'Origin' } : {}) });
     reply.raw.write(': connected\n\n'); // flush headers so proxies open the stream immediately
     const send = (m: BusMessage) => reply.raw.write(`data: ${JSON.stringify(m)}\n\n`);
     const ping = setInterval(() => reply.raw.write(': ping\n\n'), 15000);

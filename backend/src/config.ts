@@ -12,6 +12,8 @@ export const config = {
   teamApiKey: process.env.TEAM_API_KEY ?? '',
   engineVersion: 'leash-engine/0.1.0',
   humanWindowSeconds: Number(process.env.HUMAN_WINDOW_SECONDS ?? 120),
+  /** Browser origins allowed to call the API (the customer UI). Comma-separated. */
+  corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:4200,http://127.0.0.1:4200').split(',').map((s) => s.trim()).filter(Boolean),
 };
 
 export const liveEnabled = () => config.teamApiKey.length > 0;
