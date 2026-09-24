@@ -47,6 +47,7 @@ Rules use only these fields:
 - ${FIELDS.familiarity}: >= N earlier approved purchases at that exact shop (3 for "regularly", 1 for
   "before"/"familiar").
 - ${FIELDS.returnDays}: >= N days the order must be returnable.
+- ${FIELDS.deliveryDays}: <= N days for the order to arrive by. Checked against the order's own delivery date, never shop-provided text; not applicable to pickup or digital orders.
 - ${FIELDS.size}: = the stated size (uppercase).
 - ${FIELDS.quantity}: <= N units total in the basket.
 - ${FIELDS.unrequested}: <= 0 when the instruction says not to add anything unrequested.

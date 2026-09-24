@@ -127,6 +127,34 @@ test('a purchase outside the delegation window is declined', async () => {
   assert.ok(r.reason_codes.includes('authority_outside_validity'));
 });
 
+test('delivery_within_days checks the order\'s own delivery date, never shop text', async () => {
+  const ev = await eventsOf('SCEN0004');
+  const withRule = structuredClone(ev.AU0038);
+  withRule.mandate.hard_rules = [...withRule.mandate.hard_rules, { field: 'authorization.delivery_within_days', operator: '<=', value: 3 }];
+  withRule.authorization.fulfillment_method = 'delivery';
+  const ts = Date.parse(withRule.authorization.timestamp);
+  const checkOf = (r: ReturnType<typeof decideWith>) => r.checks.find((c) => c.rule?.field === 'authorization.delivery_within_days')!;
+
+  const onTime = structuredClone(withRule);
+  onTime.authorization.delivery_by = new Date(ts + 2 * 86_400_000).toISOString().slice(0, 10);
+  assert.equal(checkOf(decideWith(onTime)).status, 'pass');
+
+  const late = structuredClone(withRule);
+  late.authorization.delivery_by = new Date(ts + 5 * 86_400_000).toISOString().slice(0, 10);
+  const lateResult = decideWith(late);
+  assert.equal(checkOf(lateResult).status, 'fail');
+  assert.ok(lateResult.reason_codes.includes('delivery_too_slow'));
+
+  const noDate = structuredClone(withRule);
+  noDate.authorization.delivery_by = null;
+  assert.equal(checkOf(decideWith(noDate)).status, 'uncertain');
+
+  const digital = structuredClone(withRule);
+  digital.authorization.fulfillment_method = 'digital';
+  digital.authorization.delivery_by = null;
+  assert.equal(checkOf(decideWith(digital)).status, 'uncertain');
+});
+
 // ---- (c) customer preferences ----------------------------------------------
 
 test('preferences are parsed from customers.csv', () => {

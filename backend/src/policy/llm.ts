@@ -53,7 +53,7 @@ export interface LlmContext {
 
 export interface LlmOutcome { draft: PolicyDraft; used: boolean; note: string }
 
-const NUMERIC_FIELDS = new Set<string>([FIELDS.amount, FIELDS.returnDays, FIELDS.localHour, FIELDS.familiarity, FIELDS.quantity, FIELDS.unrequested]);
+const NUMERIC_FIELDS = new Set<string>([FIELDS.amount, FIELDS.returnDays, FIELDS.deliveryDays, FIELDS.localHour, FIELDS.familiarity, FIELDS.quantity, FIELDS.unrequested]);
 const LIST_FIELDS = new Set<string>([FIELDS.itemId, FIELDS.itemCategory, FIELDS.merchantCategory, FIELDS.merchantCountry, FIELDS.fulfillment]);
 
 /** Turns one model suggestion into a rule the engine understands, or explains why not. */
@@ -101,6 +101,7 @@ Rules you may add use only these fields (rules are combined with AND; every cart
 - ${FIELDS.merchantCountry}: in / not_in with ISO country codes
 - ${FIELDS.familiarity}: >= N earlier approved purchases at that shop
 - ${FIELDS.returnDays}: >= N days to return the order
+- ${FIELDS.deliveryDays}: <= N days for the order to arrive (checked against the order's own delivery date; not applicable to pickup or digital orders)
 - ${FIELDS.size}: = size stated for the product
 - ${FIELDS.quantity}: <= N units in the basket
 - ${FIELDS.unrequested}: <= 0 means no add-ons

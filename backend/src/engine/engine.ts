@@ -66,6 +66,7 @@ const REASON_BY_FIELD: Record<string, string> = {
   [FIELDS.itemCategory]: 'item_category_not_allowed',
   [FIELDS.size]: 'item_attribute_mismatch',
   [FIELDS.returnDays]: 'return_terms_insufficient',
+  [FIELDS.deliveryDays]: 'delivery_too_slow',
   [FIELDS.merchantCategory]: 'merchant_category_not_allowed',
   [FIELDS.merchantCountry]: 'merchant_country_not_allowed',
   [FIELDS.familiarity]: 'unfamiliar_merchant',
@@ -167,6 +168,13 @@ export function evaluate(input: EngineInput): EngineResult {
         const minDays = Math.min(...known.map((f) => f.facts.returnDays as number));
         const detail = known.some((f) => f.facts.noReturns) ? 'Final sale / no returns.' : `Returns accepted within ${minDays} days.`;
         push(compare(minDays, rule.operator, rule.value) ? 'pass' : 'fail', detail);
+        break;
+      }
+      case FIELDS.deliveryDays: {
+        if (a.fulfillment_method !== 'delivery') { push('uncertain', 'This order is not a home delivery, so no delivery date applies.'); break; }
+        if (!a.delivery_by) { push('uncertain', 'The order does not state a delivery date.'); break; }
+        const days = Math.ceil((Date.parse(a.delivery_by) - Date.parse(a.timestamp)) / DAY);
+        push(compare(days, rule.operator, rule.value) ? 'pass' : 'fail', `Expected delivery in ${days} day(s), by ${a.delivery_by}.`);
         break;
       }
       case FIELDS.merchantCategory:

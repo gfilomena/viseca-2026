@@ -19,6 +19,12 @@ test('"book" as a verb is not the books category; hotels are recognised', () => 
   assert.ok(rules('Buy me two paperback books.').includes('items.item_category in ["books"]'));
 });
 
+test('a delivery-time phrase adds a delivery_within_days rule, distinct from the return window', () => {
+  assert.deepEqual(rules('The item should arrive within 3 working days.'), ['authorization.delivery_within_days <= 3']);
+  assert.deepEqual(rules('Buy shoes, only if the order can be delivered within 5 days and returned within 14 days.'),
+    ['authorization.return_window_days >= 14', 'authorization.fulfillment_method in ["delivery"]', 'authorization.delivery_within_days <= 5']);
+});
+
 test('two amounts in one sentence give a per-purchase and a period limit', () => {
   assert.deepEqual(rules('Max CHF 100 per purchase and CHF 400 per month.'), [
     'authorization.billing_amount_chf <= 100',
