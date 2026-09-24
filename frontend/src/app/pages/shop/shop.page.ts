@@ -29,15 +29,6 @@ const DECISION_LABEL: Record<string, string> = { approve: 'Approved', decline: '
 const STATUS_LABEL: Record<string, string> = { approved: 'Paid', declined: 'Not paid', pending: 'Waiting for you', expired: 'Expired, not paid' };
 const CHECK_ICON: Record<Check['status'], string> = { pass: '✓', fail: '✕', uncertain: '?', info: 'i' };
 
-const SUGGESTIONS = [
-  'Buy the 27-inch monitor at PixelHarbor for CHF 289',
-  'Buy the 27-inch monitor at PixelHarbour for CHF 299',
-  'Order a fresh produce selection at Alpine Basket for CHF 13',
-  'Buy road-running shoes size 43 at TrailSpark for CHF 165',
-  'Buy an everyday jacket at Loom and Pine for CHF 145',
-  'Buy a digital gift voucher for CHF 195',
-];
-
 type Filter = 'all' | 'approve' | 'decline' | 'step_up';
 
 @Component({
@@ -53,7 +44,6 @@ export class ShopPage {
   protected stepUps = inject(StepUpService);
   private scroller = viewChild<ElementRef<HTMLElement>>('scroller');
 
-  protected readonly suggestions = SUGGESTIONS;
   protected readonly decisionLabel = DECISION_LABEL;
   protected readonly statusLabel = STATUS_LABEL;
   protected readonly checkIcon = CHECK_ICON;
@@ -118,10 +108,8 @@ export class ShopPage {
   protected selectMandate(id: string) {
     this.chat.mandateId.set(id);
     const m = this.active().find((x) => x.id === id);
-    if (m) this.chat.push({ kind: 'bot', text: `Now shopping under the policy “${m.instruction}”. Every purchase is checked against it.` });
+    if (m) this.chat.push({ kind: 'bot', text: `Policy: “${m.instruction}”` });
   }
-
-  protected useSuggestion(s: string) { this.input.set(s); }
 
   protected async send(box?: HTMLInputElement) {
     // Read the DOM value too: with fast typing the signal may lag one change detection behind.
@@ -134,7 +122,7 @@ export class ShopPage {
     this.busy.set(true);
     try {
       const data = await this.api.interpret(m.id, text);
-      this.chat.push({ kind: 'bot', text: data.item && data.merchant ? 'Here is the purchase I would make. If it is right, let me try to buy it.' : 'I could not work out the product or the shop. Please describe it again, e.g. “Buy the 27-inch monitor at PixelHarbor for CHF 289”.' });
+      this.chat.push({ kind: 'bot', text: data.item && data.merchant ? 'Here is what I would buy:' : 'I could not tell the product or the shop. Name both, with a price.' });
       this.chat.push({ kind: 'review', data, offer: structuredClone(data.offer), state: 'open' });
     } catch (e) {
       this.chat.push({ kind: 'bot', text: errorText(e), tone: 'error' });
@@ -145,7 +133,7 @@ export class ShopPage {
 
   protected cancel(msg: ChatMessage) {
     this.chat.update(msg.id, { state: 'cancelled' } as Partial<ChatMessage>);
-    this.chat.push({ kind: 'bot', text: 'OK, nothing was bought.' });
+    this.chat.push({ kind: 'bot', text: 'Cancelled.' });
   }
 
   protected async tryToBuy(msg: Extract<ChatMessage, { kind: 'review' }>) {
