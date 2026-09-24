@@ -144,7 +144,9 @@ export class ShopPage {
     this.busy.set(true);
     try {
       const data = await this.api.interpret(m.id, text);
-      this.chat.push({ kind: 'bot', text: data.item && data.merchant ? 'Here is what I would buy:' : 'I could not tell the product or the shop. Name both, with a price.' });
+      // data.item is only set for a catalogue match — a free-text product (data.offer.item_name) is
+      // just as valid a match, so check the offer's product name, not the fixed-catalogue lookup.
+      this.chat.push({ kind: 'bot', text: data.offer.item_name && data.merchant ? 'Here is what I would buy:' : 'I could not tell the product or the shop. Name both, with a price.' });
       this.chat.push({ kind: 'review', data, offer: structuredClone(data.offer), state: 'open' });
     } catch (e) {
       this.chat.push({ kind: 'bot', text: errorText(e), tone: 'error' });
