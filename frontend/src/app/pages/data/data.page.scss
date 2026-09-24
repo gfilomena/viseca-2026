@@ -1,0 +1,4 @@
+.counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; }
+.stat strong { font-size: 22px; }
+.stat .faint { text-transform: capitalize; }

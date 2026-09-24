@@ -1,0 +1,27 @@
+<header class="shell">
+  <div class="brand">
+    <span class="logo" aria-hidden="true">◈</span>
+    <div>
+      <strong>Leash</strong>
+      <span class="faint">Wallet control for AI shopping agents</span>
+    </div>
+  </div>
+  <nav>
+    <a routerLink="/policy" routerLinkActive="on">Wallet policy</a>
+    <a routerLink="/activity" routerLinkActive="on">
+      Purchases
+      @if (pending() > 0) { <span class="count" [attr.aria-label]="pending() + ' waiting for you'">{{ pending() }}</span> }
+    </a>
+    <a routerLink="/data" routerLinkActive="on">Customer data</a>
+  </nav>
+  <div class="status">
+    <span class="dot" [class.on]="live.connected()"></span>
+    <span class="faint">{{ live.connected() ? 'Engine connected' : 'Engine offline' }}</span>
+    @if (health(); as h) {
+      <span class="badge" [class.active]="h.live">{{ h.live ? 'Hosted API on' : 'Offline replay' }}</span>
+    }
+  </div>
+</header>
+<main>
+  <router-outlet />
+</main>

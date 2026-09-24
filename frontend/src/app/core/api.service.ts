@@ -1,0 +1,36 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import type { CardProfile, DecisionRow, HardRule, Health, Mandate, Run, Scenario, UncertaintyPolicy } from './models';
+
+@Injectable({ providedIn: 'root' })
+export class ApiService {
+  private http = inject(HttpClient);
+  private get = <T>(url: string) => firstValueFrom(this.http.get<T>(`/api${url}`));
+  private send = <T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', url: string, body?: unknown) =>
+    firstValueFrom(this.http.request<T>(method, `/api${url}`, { body }));
+
+  health = () => this.get<Health>('/health');
+  scenarios = () => this.get<Scenario[]>('/scenarios');
+  attempts = (scenarioId: string) => this.get<Record<string, unknown>[]>(`/scenarios/${scenarioId}/attempts`);
+  cardProfile = (cardId: string) => this.get<CardProfile>(`/cards/${cardId}/profile`);
+
+  mandates = () => this.get<Mandate[]>('/mandates');
+  draft = (instruction: string, scenario_id?: string) => this.send<Mandate>('POST', '/mandates', { instruction, scenario_id });
+  editDraft = (id: string, patch: { hard_rules?: HardRule[]; uncertainty_policy?: UncertaintyPolicy }) => this.send<Mandate>('PUT', `/mandates/${id}/draft`, patch);
+  confirm = (id: string) => this.send<Mandate>('POST', `/mandates/${id}/confirm`);
+  tighten = (id: string, patch: { add_rules?: HardRule[]; uncertainty_policy?: UncertaintyPolicy }) => this.send<Mandate>('PATCH', `/mandates/${id}`, patch);
+  revoke = (id: string) => this.send<Mandate>('DELETE', `/mandates/${id}`);
+
+  runs = () => this.get<Run[]>('/runs');
+  startRun = (scenario_id: string, mandate_id: string, mode: 'offline' | 'live') => this.send<Run>('POST', '/runs', { scenario_id, mandate_id, mode });
+  decisions = (q: { run_id?: string; status?: string } = {}) =>
+    this.get<DecisionRow[]>(`/decisions?${new URLSearchParams(Object.entries(q).filter(([, v]) => v) as [string, string][])}`);
+  decision = (id: string) => this.get<DecisionRow>(`/decisions/${encodeURIComponent(id)}`);
+  resolve = (id: string, decision: 'approve' | 'decline', note?: string) => this.send<DecisionRow>('POST', `/decisions/${encodeURIComponent(id)}/resolve`, { decision, note });
+}
+
+export function errorText(e: unknown): string {
+  const any = e as { error?: { error?: string }; message?: string };
+  return any?.error?.error ?? any?.message ?? 'Something went wrong';
+}

@@ -1,0 +1,72 @@
+<section class="page">
+  <div class="page-head">
+    <div class="stack-sm">
+      <h1>Customer data</h1>
+      <p>The synthetic data pack loaded into the local database. Card history is the baseline for familiar shops, devices and countries.</p>
+    </div>
+  </div>
+  @if (error()) { <div class="callout error">{{ error() }}</div> }
+
+  @if (health(); as h) {
+    <div class="counts">
+      @for (kv of h.data | keyvalue; track kv.key) {
+        <div class="stat"><span class="faint">{{ kv.key.replace('_', ' ') }}</span><strong>{{ kv.value | number }}</strong></div>
+      }
+    </div>
+  }
+
+  <div class="row tabs">
+    @for (s of scenarios(); track s.scenario_id) {
+      <button class="btn sm" [class.primary]="s.scenario_id === scenarioId()" (click)="pick(s)">{{ s.scenario_id }} · {{ s.persona_name }}</button>
+    }
+  </div>
+
+  <div class="grid-2">
+    @if (profile(); as p) {
+      <article class="card stack">
+        <h2>Card {{ p.card['card_id'] }} · {{ p.card['persona_name'] }}</h2>
+        <p class="muted">{{ p.card['shopping_preferences'] }}</p>
+        <div class="row">
+          <span class="chip">{{ p.card['card_type'] }} · {{ p.card['card_purpose'] }}</span>
+          <span class="chip">{{ p.card['budget_style'] }} budget</span>
+          <span class="chip">{{ p.purchases }} approved purchases</span>
+          <span class="chip">p95 CHF {{ p.amount_p95_chf | number: '1.2-2' }}</span>
+        </div>
+        <h3>Familiar shops</h3>
+        <table>
+          <thead><tr><th>Shop</th><th>ID</th><th class="num">Approved</th></tr></thead>
+          <tbody>
+            @for (m of p.merchants; track m.merchant_id) {
+              <tr><td>{{ m.merchant_name }}</td><td class="mono">{{ m.merchant_id }}</td><td class="num">{{ m.approved_purchases }}</td></tr>
+            }
+          </tbody>
+        </table>
+        <h3>Known devices</h3>
+        <div class="row">@for (d of p.devices | keyvalue; track d.key) { <span class="chip mono">{{ d.key }} · {{ d.value }}</span> }</div>
+        <h3>Countries</h3>
+        <div class="row">@for (c of p.countries; track c) { <span class="chip">{{ c }}</span> }</div>
+      </article>
+    }
+
+    <article class="card stack">
+      <h2>Proposed purchases ({{ attempts().length }})</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Source</th><th>Shop</th><th class="num">Amount</th><th>Device</th></tr></thead>
+          <tbody>
+            @for (a of attempts(); track a['authorization_id']) {
+              <tr>
+                <td class="faint">{{ a['replay_order'] }}</td>
+                <td class="mono">{{ a['authorization_id'] }}</td>
+                <td>{{ a['merchant_name'] }} <span class="faint">{{ a['merchant_category'] }} · {{ a['merchant_country'] }}</span></td>
+                <td class="num">{{ a['currency'] }} {{ a['amount'] | number: '1.2-2' }}</td>
+                <td class="mono">{{ a['customer_device_id'] }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="faint">Outcomes are never looked up from this list: the engine decides from policy and purchase facts only.</p>
+    </article>
+  </div>
+</section>

@@ -1,0 +1,30 @@
+.step { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 12px; margin-right: 6px; }
+.scenarios { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.scenario {
+  text-align: left; display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); font: inherit; color: var(--ink);
+}
+.scenario:hover { border-color: #cfd4dc; }
+.scenario.on { border-color: var(--accent); background: var(--accent-soft); }
+
+.rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: r; }
+.rule { display: grid; grid-template-columns: 1fr 190px; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+.rule-main { display: grid; gap: 6px; }
+.rule-main code { color: var(--ink-2); word-break: break-word; }
+.rule-edit { display: grid; gap: 6px; align-content: start; }
+@media (max-width: 640px) { .rule { grid-template-columns: 1fr; } }
+
+.guidance, .audit { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; color: var(--ink-2); }
+.audit { list-style: none; padding: 0; }
+
+.mandate { border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 12px; }
+.mandate-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+blockquote { margin: 0; color: var(--ink-2); font-style: italic; max-width: 80ch; }
+.labels { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.labels li { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; font-size: 13px; }
+.actions { align-self: start; }
+.run select { width: auto; min-width: 240px; }
+.tighten { background: var(--surface-2); border-radius: 10px; padding: 12px; }
+.tighten-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: end; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.check input { width: auto; }

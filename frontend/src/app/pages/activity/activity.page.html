@@ -1,0 +1,169 @@
+<section class="page">
+  <div class="page-head">
+    <div class="stack-sm">
+      <h1>Purchases</h1>
+      <p>Every purchase the agent proposes is checked against your confirmed policy in milliseconds. Anything uncertain waits for you.</p>
+    </div>
+    <label class="field run-pick">
+      Run
+      <select [ngModel]="runId()" (ngModelChange)="selectRun($event)">
+        @for (r of runs(); track r.id) {
+          <option [value]="r.id">{{ r.scenario_id }} · {{ r.mode }} · {{ r.created_at | date: 'shortTime' }} ({{ r.status }})</option>
+        } @empty { <option disabled>No runs yet</option> }
+      </select>
+    </label>
+  </div>
+
+  @if (error()) { <div class="callout error" role="alert">{{ error() }}</div> }
+
+  <!-- Inbox: human in the loop -->
+  @if (pending().length) {
+    <article class="card inbox stack">
+      <header>
+        <h2>Waiting for your decision</h2>
+        <span class="badge pending">{{ pending().length }} pending</span>
+      </header>
+      <div class="pending-list">
+        @for (p of pending(); track p.authorization_id) {
+          <div class="pending">
+            <div class="row">
+              <strong>{{ p.merchant_name }}</strong>
+              <span class="spacer"></span>
+              <strong class="amount">{{ p.billing_amount_chf | currency: 'CHF ' }}</strong>
+            </div>
+            <p class="faint">{{ (p.items ?? []).join(', ') }} · {{ p.source_authorization_id }}</p>
+            <p>{{ p.customer_message }}</p>
+            @if (hasInjection(p)) {
+              <div class="callout error">The shop's text tried to instruct the payment system. It was ignored; your limits still apply.</div>
+            }
+            @for (i of p.impact ?? []; track i.rule) {
+              @if (i.breaches) {
+                <div class="callout warn">Approving now would bring your {{ i.rule }} total to {{ i.total_if_approved_chf | currency: 'CHF ' }} (limit {{ i.limit_chf | currency: 'CHF ' }}), because other orders were approved meanwhile.</div>
+              }
+            }
+            <input placeholder="Optional note (e.g. why)" [(ngModel)]="notes[p.authorization_id]" />
+            <div class="row">
+              <button class="btn sm" (click)="open(p)">Details</button>
+              <span class="faint">
+                @if (secondsLeft(p) !== null) { {{ secondsLeft(p) }}s left }
+              </span>
+              <span class="spacer"></span>
+              <button class="btn decline" (click)="resolve(p, 'decline')">Decline</button>
+              <button class="btn approve" (click)="resolve(p, 'approve')">Approve</button>
+            </div>
+          </div>
+        }
+      </div>
+    </article>
+  }
+
+  @if (currentRun(); as r) {
+    <div class="stats">
+      <div class="stat"><span class="faint">Purchases</span><strong>{{ stats().total }}</strong></div>
+      <div class="stat"><span class="faint">Paid</span><strong class="ok">{{ stats().approved }}</strong><span class="faint">{{ stats().auto }} with no friction</span></div>
+      <div class="stat"><span class="faint">Stopped</span><strong class="bad">{{ stats().declined }}</strong></div>
+      <div class="stat"><span class="faint">Waiting for you</span><strong class="warn">{{ stats().pending }}</strong></div>
+      <div class="stat"><span class="faint">Spent</span><strong>{{ stats().spend | currency: 'CHF ' }}</strong></div>
+      <div class="stat"><span class="faint">Avg decision time</span><strong>{{ stats().lat | number: '1.1-2' }} ms</strong></div>
+    </div>
+    @if (r.error) { <div class="callout warn">{{ r.error }}</div> }
+  }
+
+  <div class="layout" [class.with-detail]="selected()">
+    <article class="card">
+      <header>
+        <h2>Timeline</h2>
+        @if (currentRun(); as r) {
+          <span class="faint">Policy <code>{{ r.mandate_id }}</code> · {{ r.mode === 'live' ? 'hosted simulator ' + (r.remote_run_id ?? '') : 'offline replay' }}</span>
+        }
+      </header>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>When</th><th>Shop</th><th>Basket</th><th class="num">CHF</th><th>Engine</th><th>Outcome</th><th>Why</th></tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.authorization_id) {
+              <tr class="clickable" [class.selected]="selected()?.authorization_id === row.authorization_id" (click)="open(row)">
+                <td class="faint">{{ row.replay_order }}</td>
+                <td class="nowrap">{{ row.sim_timestamp | date: 'MMM d, HH:mm' : 'UTC' }}</td>
+                <td>{{ row.merchant_name }}</td>
+                <td class="basket">{{ (row.items ?? []).join(', ') }}</td>
+                <td class="num">{{ row.billing_amount_chf | number: '1.2-2' }}</td>
+                <td><span class="badge" [class]="row.engine_decision">{{ decisionLabel[row.engine_decision] }}</span></td>
+                <td><span class="badge" [class]="row.status">{{ statusLabel[row.status] }}</span>
+                  @if (row.resolved_by === 'customer') { <span class="faint"> by you</span> }</td>
+                <td class="why">{{ summary(row) }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="8" class="empty">No purchases yet. Start a run from the Wallet policy page.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    @if (selected(); as d) {
+      <aside class="card detail stack">
+        <header>
+          <div class="stack-sm">
+            <h2>{{ d.merchant_name }}</h2>
+            <span class="faint">{{ d.event?.authorization?.merchant?.merchant_category }} · MCC {{ d.event?.authorization?.merchant?.merchant_mcc }} · {{ d.event?.authorization?.merchant?.merchant_city }}, {{ d.event?.authorization?.merchant?.merchant_country }}</span>
+          </div>
+          <button class="btn sm" (click)="selected.set(null)" aria-label="Close details">✕</button>
+        </header>
+
+        <div class="row">
+          <span class="badge" [class]="d.engine_decision">{{ decisionLabel[d.engine_decision] }}</span>
+          <span class="badge" [class]="d.status">{{ statusLabel[d.status] }}</span>
+          <span class="spacer"></span>
+          <strong class="amount">{{ d.billing_amount_chf | currency: 'CHF ' }}</strong>
+        </div>
+        @if (d.event?.authorization; as a) {
+          @if (a.currency !== 'CHF') { <p class="faint">Charged {{ a.currency }} {{ a.amount | number: '1.2-2' }}, converted at the fixed rate.</p> }
+        }
+
+        <p class="message">{{ d.customer_message }}</p>
+        @if (d.resolution_note) { <p class="callout info">{{ d.resolution_note }}</p> }
+
+        <div class="stack-sm">
+          <h3>What we checked</h3>
+          <ul class="checks">
+            @for (c of d.checks; track $index) {
+              <li [class]="c.status">
+                <span class="icon" [attr.aria-label]="c.status">{{ checkIcon[c.status] }}</span>
+                <div><strong>{{ c.label }}</strong><p>{{ c.detail }}</p></div>
+              </li>
+            }
+          </ul>
+        </div>
+
+        @if (d.event?.authorization?.items; as items) {
+          <div class="stack-sm">
+            <h3>Basket</h3>
+            @for (l of items; track l.line_no) {
+              <div class="line">
+                <div class="row"><strong>{{ l.quantity }}× {{ l.item_name }}</strong><span class="chip">{{ l.item_category }}</span><span class="spacer"></span>{{ l.currency }} {{ l.unit_price | number: '1.2-2' }}</div>
+                <div class="untrusted" [class.flagged]="hasInjection(d)">
+                  <span class="faint">Shop text · untrusted</span>
+                  <p>{{ l.item_details }}</p>
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        <details open>
+          <summary><h3>Evidence</h3></summary>
+          <ul class="evidence">@for (e of d.evidence; track $index) { <li>{{ e }}</li> }</ul>
+        </details>
+
+        <p class="faint mono">
+          {{ d.authorization_id }} · source {{ d.source_authorization_id }} · {{ d.latency_ms }} ms
+          @if (d.remote_submitted) { · sent to simulator } @if (d.remote_error) { · <span class="bad">{{ d.remote_error }}</span> }
+        </p>
+        <p class="faint">Reason codes: {{ d.reason_codes.join(', ') }}</p>
+      </aside>
+    }
+  </div>
+</section>
