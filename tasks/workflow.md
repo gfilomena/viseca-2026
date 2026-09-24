@@ -34,3 +34,6 @@ BUILD ✅ · VERIFY ✅ (50 tests, build, browser 633px cards + 1280px table, dr
 
 ## Wallet policy table scoped to selected customer — feat/policy-filter-by-customer
 BUILD ✅ · VERIFY ✅ (50 backend tests unaffected, build, browser: switched between 3 customers, correct rows/empty state each time) · SHIP ✅ (PR + merge on fork)
+
+## Shop chat: propose any product, not just the catalogue — feat/shop-any-product
+DEFINE ✅ · BUILD ✅ · VERIFY ✅ (54 backend tests incl. 4 new, frontend build, browser: non-catalogue product approved under an amount-only policy, and correctly declined under an item-specific policy) · SHIP ✅ (PR + merge on fork)

@@ -14,6 +14,13 @@ import { fxRates } from '../services/catalog.ts';
  * the offer — including the shop's product text, to try manipulation — before the
  * agent submits it. The wallet control engine then judges it against the confirmed
  * policy only; nothing in the request or the offer can change that policy.
+ *
+ * The agent is not limited to the 66-item data-pack catalogue: it will propose whatever
+ * product the customer names. A catalogue match (when there is one) gives a reliable
+ * category and reference price; anything else gets a best-effort category guess and a
+ * price taken from what the customer stated. Either way, wallet control decides the
+ * purchase the same way — a rule such as "only IT0017" or "only groceries" applies
+ * identically to a catalogue product and a free-text one.
  */
 
 export interface OfferItem { item_id: string; item_name: string; item_category: string; typical_chf: number; min_chf: number; max_chf: number; score?: number }
@@ -22,6 +29,9 @@ export interface OfferMerchant { merchant_id: string; merchant_name: string; mer
 export interface PurchaseOffer {
   request_text: string;
   item_id: string | null;
+  /** Always populated once a product is recognised, catalogued or not. */
+  item_name: string | null;
+  item_category: string | null;
   quantity: number;
   unit_price_chf: number | null;
   budget_chf: number | null;
@@ -36,6 +46,7 @@ export interface PurchaseOffer {
 
 export interface InterpretedRequest {
   offer: PurchaseOffer;
+  /** The catalogue match, if the product happens to be one of the data pack's 66 items. */
   item: OfferItem | null;
   merchant: OfferMerchant | null;
   item_candidates: OfferItem[];
@@ -61,6 +72,26 @@ const SHOP_FOR: Record<string, string | undefined> = {
   books: 'books', household: 'household', subscriptions: 'subscriptions', hotel: 'hotel', fuel: 'fuel',
   transport: 'transport', dining: 'dining', food_delivery: 'food_delivery', home_improvement: 'home_improvement',
 };
+
+/**
+ * Best-effort category guess for a product that is not in the catalogue, using the same
+ * category vocabulary as items.csv / merchants.csv. It only ever narrows a rule check
+ * ("items.item_category in [...]"); guessing wrong makes the purchase uncertain or
+ * declined, never silently approved outside the category.
+ */
+const PRODUCT_CATEGORY_HINTS: [RegExp, string][] = [
+  [/\b(bicycle|bike|helmet|running shoes?|trainers?|hiking boots?|tent|ski(s|ing)?|snowboard|racket|yoga mat|scooter|skateboard)\b/i, 'sporting_goods'],
+  [/\b(phone|smartphone|laptop|computer|monitor|tablet|headphones?|earbuds?|charger|camera|tv|television|console|keyboard|mouse|printer|router)\b/i, 'electronics'],
+  [/\b(shirt|t-?shirt|jacket|coat|jeans|trousers|dress|shoes?|boots|sweater|hoodie|scarf|gloves|socks)\b/i, 'clothing'],
+  [/\b(bread|milk|eggs?|fruit|vegetables?|banana|apple|rice|pasta|cheese|coffee|tea|groceries?|snacks?)\b/i, 'groceries'],
+  [/\b(book|novel|textbook|magazine)\b/i, 'books'],
+  [/\b(sofa|couch|chair|table|lamp|rug|curtains?|cushion|shelf|shelving|mattress)\b/i, 'household'],
+  [/\b(paint|drill|hammer|screwdriver|toolkit|nails?|screws?|ladder)\b/i, 'home_improvement'],
+  [/\b(perfume|makeup|lipstick|skincare|shampoo|cosmetics?)\b/i, 'cosmetics'],
+  [/\bgift ?(card|voucher)s?\b/i, 'gift_card'],
+  [/\b(train|rail|bus|tram)\s*(ticket|pass)?\b/i, 'transport'],
+  [/\b(fuel|petrol|diesel|charging session)\b/i, 'fuel'],
+];
 
 export const currencyFor = (country: string): Currency =>
   country === 'CH' ? 'CHF' : country === 'GB' ? 'GBP' : country === 'US' ? 'USD' : 'EUR';
@@ -98,39 +129,94 @@ function findMerchant(text: string, merchants: OfferMerchant[]): OfferMerchant |
   return [...merchants].sort((a, b) => b.merchant_name.length - a.merchant_name.length).find((m) => flat.includes(norm(m.merchant_name)));
 }
 
+function guessCategory(text: string): string {
+  for (const [re, cat] of PRODUCT_CATEGORY_HINTS) if (re.test(text)) return cat;
+  return 'general';
+}
+
+const AMOUNT_RE = [
+  /\b(?:up to|at most|no more than|not more than|max(?:imum)?|under|below|for|at|costs?|priced)?\s*(?:CHF|EUR|GBP|USD|Fr\.?)\s?\d+(?:[.,]\d{1,2})?\b/gi,
+  /\b\d+(?:[.,]\d{1,2})?\s?(?:CHF|EUR|GBP|USD|francs?)\b/gi,
+];
+
+/** Removes a matched merchant name (and its "from"/"at" connector) so it cannot be mistaken for product words. */
+function stripMerchantName(text: string, merchantName: string | null): string {
+  if (!merchantName) return text;
+  const esc = merchantName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return text.replace(new RegExp(`\\b(from|at)\\s+${esc}\\b`, 'i'), ' ').replace(new RegExp(esc, 'i'), ' ');
+}
+
+/** Best-effort product name for text that did not match the catalogue: strip the shop, the price, and boilerplate. */
+export function extractProductName(text: string, merchantName: string | null): string | null {
+  let s = stripMerchantName(text, merchantName);
+  for (const re of AMOUNT_RE) s = s.replace(re, ' ');
+  s = s.replace(/\s{2,}/g, ' ').trim();
+  s = s.replace(/^(please\s+)?(buy|order|get|purchase|grab|pick up)\s+(me\s+)?/i, '');
+  s = s.replace(/^(a|an|the|some|one|two|three|four|five)\s+/i, '');
+  s = s.replace(/\b(from|at)\s*$/i, '').replace(/[.,!?]+$/, '').replace(/\s{2,}/g, ' ').trim();
+  if (s.length < 2) return null;
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function interpretRequest(db: DatabaseSync, cardId: string, text: string): InterpretedRequest {
   const opts = shopOptions(db, cardId);
   const notes: string[] = [];
   const questions: string[] = [];
   const lower = text.toLowerCase();
 
-  const candidates = scoreItems(text, opts.items).slice(0, 5);
-  const item = candidates[0] ?? null;
-  if (item) notes.push(`Product: “${item.item_name}” (${item.item_category}), the closest catalogue match.`);
-  else questions.push('I could not match a product in the catalogue. Pick one below.');
-  if (candidates.length > 1 && (candidates[1].score ?? 0) >= (candidates[0].score ?? 0) - 0.05) {
-    questions.push(`“${candidates[0].item_name}” and “${candidates[1].item_name}” match equally well. Check the product.`);
-  }
+  const namedMerchant = findMerchant(text, opts.merchants) ?? null;
+  // Score against the text with the shop name removed, so e.g. "Alpine Basket" cannot make an
+  // unrelated request match the catalogue's "Weekly grocery basket" through the shared word "basket".
+  const candidates = scoreItems(stripMerchantName(text, namedMerchant?.merchant_name ?? null), opts.items).slice(0, 5);
+  const catalogueItem = candidates[0] ?? null;
 
   const qty = lower.match(/\b(\d{1,2})\s*(?:x|pcs|pieces|units|×)\b/) ?? lower.match(/\b(two|three|four|five)\b/);
-  const words: Record<string, number> = { two: 2, three: 3, four: 4, five: 5 };
-  const quantity = qty ? (Number(qty[1]) || words[qty[1]] || 1) : 1;
+  const qtyWords: Record<string, number> = { two: 2, three: 3, four: 4, five: 5 };
+  const quantity = qty ? (Number(qty[1]) || qtyWords[qty[1]] || 1) : 1;
 
   const amount = parseAmount(text);
   const budget = amount ? roundHalfEven(amount.value * (fxRates()[amount.currency] ?? 1)) : null;
   const exact = amount && /\b(for|at|costs?|priced)\s+(chf|eur|gbp|usd|fr)?\s?\d/i.test(text) && !/\b(up to|max|maximum|at most|no more than|or less|under|below|budget)\b/i.test(text);
-  const unit = item ? (budget ? (exact ? budget / quantity : Math.min(item.typical_chf, budget / quantity)) : item.typical_chf) : budget;
-  if (item) notes.push(budget
-    ? exact ? `Price: CHF ${roundHalfEven(unit!).toFixed(2)} per unit, as you asked.` : `Price: CHF ${roundHalfEven(unit!).toFixed(2)} per unit, within your budget of CHF ${budget.toFixed(2)}.`
-    : `Price: CHF ${roundHalfEven(unit!).toFixed(2)}, the usual price for this product.`);
 
-  let merchant = findMerchant(text, opts.merchants) ?? null;
+  let itemName: string | null;
+  let itemCategory: string | null;
+  let itemId: string | null;
+  let unit: number | null;
+
+  if (catalogueItem) {
+    itemName = catalogueItem.item_name;
+    itemCategory = catalogueItem.item_category;
+    itemId = catalogueItem.item_id;
+    unit = budget ? (exact ? budget / quantity : Math.min(catalogueItem.typical_chf, budget / quantity)) : catalogueItem.typical_chf;
+    notes.push(`Product: “${itemName}” (${itemCategory}), the closest catalogue match.`);
+    if (candidates.length > 1 && (candidates[1].score ?? 0) >= (candidates[0].score ?? 0) - 0.05) {
+      questions.push(`“${candidates[0].item_name}” and “${candidates[1].item_name}” match equally well. Check the product.`);
+    }
+    notes.push(budget
+      ? exact ? `Price: CHF ${roundHalfEven(unit).toFixed(2)} per unit, as you asked.` : `Price: CHF ${roundHalfEven(unit).toFixed(2)} per unit, within your budget of CHF ${budget.toFixed(2)}.`
+      : `Price: CHF ${roundHalfEven(unit).toFixed(2)}, the usual price for this product.`);
+  } else {
+    itemName = extractProductName(text, namedMerchant?.merchant_name ?? null);
+    itemId = null;
+    itemCategory = itemName ? guessCategory(text) : null;
+    unit = budget ? budget / quantity : null;
+    if (itemName) {
+      notes.push(`Product: “${itemName}”, as you described it — not in this shop's product catalogue, so category (${itemCategory}) and price are our best guess.`);
+      questions.push(`“${itemName}” is not a known product. Check the price and category before buying.`);
+    } else {
+      questions.push('I could not tell what product to buy. Please name it.');
+    }
+    if (unit != null) notes.push(`Price: CHF ${roundHalfEven(unit).toFixed(2)} per unit, as you asked.`);
+    else if (itemName) questions.push('State a price (e.g. “for CHF 40”) so the agent knows what to offer.');
+  }
+
+  let merchant = namedMerchant;
   if (merchant) {
     notes.push(`Shop: ${merchant.merchant_name} (${merchant.merchant_city}, ${merchant.merchant_country}), as you asked.`);
     const known = opts.merchants.find((k) => k.familiar_purchases > 0 && k.merchant_id !== merchant!.merchant_id && isLookalike(merchant!.merchant_name, k.merchant_name));
     if (known) questions.push(`“${merchant.merchant_name}” looks like “${known.merchant_name}”, a shop you know. Is it the right one?`);
-  } else if (item) {
-    const cat = SHOP_FOR[item.item_category];
+  } else if (itemCategory) {
+    const cat = SHOP_FOR[itemCategory];
     const pool = opts.merchants.filter((m) => (cat ? m.merchant_category === cat : true));
     merchant = pool.find((m) => m.familiar_purchases > 0) ?? pool.find((m) => m.merchant_country === 'CH') ?? pool[0] ?? null;
     if (merchant) notes.push(`Shop: ${merchant.merchant_name}, ${merchant.familiar_purchases ? `where this card has ${merchant.familiar_purchases} earlier purchase(s)` : 'a shop this card has not used before'}.`);
@@ -138,8 +224,8 @@ export function interpretRequest(db: DatabaseSync, cardId: string, text: string)
   if (!merchant) questions.push('Which shop should the agent use?');
 
   const size = text.match(/\bsize\s+([0-9]{2}(?:\.5)?|XXS|XS|S|M|L|XL|XXL)\b/i)?.[1]?.toUpperCase() ?? null;
-  const digital = item ? DIGITAL.has(item.item_category) : false;
-  const description = item ? (db.prepare('SELECT item_description AS d FROM items WHERE item_id = ?').get(item.item_id) as { d: string }).d : '';
+  const digital = itemCategory ? DIGITAL.has(itemCategory) : false;
+  const description = catalogueItem ? (db.prepare('SELECT item_description AS d FROM items WHERE item_id = ?').get(catalogueItem.item_id) as { d: string }).d : '';
   const details = [description.replace(/\.$/, ''), size ? `size ${size}` : '', digital ? '' : 'returns accepted within 30 days'].filter(Boolean).join('; ');
   notes.push(digital ? 'Delivery: digital, returns do not apply.' : 'Delivery: home delivery; the simulated shop offers 30-day returns (you can change that).');
   notes.push('Everything above is only the agent\'s proposal. Your wallet policy decides, and nothing here can change it.');
@@ -148,7 +234,9 @@ export function interpretRequest(db: DatabaseSync, cardId: string, text: string)
   return {
     offer: {
       request_text: text,
-      item_id: item?.item_id ?? null,
+      item_id: itemId,
+      item_name: itemName,
+      item_category: itemCategory,
       quantity,
       unit_price_chf: unit != null ? roundHalfEven(unit) : null,
       budget_chf: budget,
@@ -157,9 +245,9 @@ export function interpretRequest(db: DatabaseSync, cardId: string, text: string)
       customer_device_id: device,
       item_details: details,
       order_returnable: digital ? 'not_applicable' : 'true',
-      delivery_fee_chf: item?.item_category === 'groceries' ? 6 : 0,
+      delivery_fee_chf: itemCategory === 'groceries' ? 6 : 0,
       fulfillment_method: digital ? 'digital' : 'delivery',
     },
-    item, merchant, item_candidates: candidates, notes, questions,
+    item: catalogueItem, merchant, item_candidates: candidates, notes, questions,
   };
 }

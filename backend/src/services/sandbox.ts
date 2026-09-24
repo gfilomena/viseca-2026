@@ -44,9 +44,13 @@ function sandboxRun(m: Mandate & { card_id: string }, snapshot: EventMandate): R
   return sandboxRun(m, snapshot);
 }
 
+/** A stable id for a product the customer named that is not in the catalogue. */
+const slugify = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'ITEM';
+
 export function buildSandboxEvent(offer: PurchaseOffer, m: Mandate & { card_id: string }, snapshot: EventMandate, run: Run, now = new Date()): AuthorizationEvent {
   const db = getDb();
-  if (!offer.item_id) throw new PolicyError('Pick a product.');
+  const itemName = offer.item_name?.trim();
+  if (!itemName) throw new PolicyError('Name the product.');
   if (!offer.merchant_id) throw new PolicyError('Pick a shop.');
   const qty = Math.trunc(Number(offer.quantity));
   const unitChf = Number(offer.unit_price_chf);
@@ -55,9 +59,11 @@ export function buildSandboxEvent(offer: PurchaseOffer, m: Mandate & { card_id: 
   if (!(unitChf > 0)) throw new PolicyError('The price must be above zero.');
   if (!(deliveryChf >= 0)) throw new PolicyError('The delivery fee cannot be negative.');
 
-  const item = db.prepare('SELECT item_id, item_name, item_category FROM items WHERE item_id = ?').get(offer.item_id) as { item_id: string; item_name: string; item_category: string } | undefined;
+  // The product does not have to be in the data-pack catalogue: the agent may propose
+  // anything. A real catalogue id (IT00xx) is kept when the agent matched one — useful for
+  // a policy that names that exact product; anything else gets a name-derived, stable id.
+  const item = { item_id: offer.item_id?.trim() || `FREE-${slugify(itemName)}`, item_name: itemName, item_category: offer.item_category?.trim() || 'general' };
   const merchant = db.prepare('SELECT * FROM merchants WHERE merchant_id = ?').get(offer.merchant_id) as any;
-  if (!item) throw new PolicyError(`Unknown product ${offer.item_id}`);
   if (!merchant) throw new PolicyError(`Unknown shop ${offer.merchant_id}`);
 
   // The shop charges in its local currency; billing is converted back at the fixed rate.
