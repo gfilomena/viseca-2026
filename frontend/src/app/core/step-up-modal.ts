@@ -6,7 +6,8 @@ import { StepUpService } from './step-up.service';
 /**
  * Global modal for purchases paused by wallet control (step_up). It shows why the
  * purchase was paused and what exactly would be bought, and asks the customer to
- * approve or decline. Esc or "Later" only defers; nothing is ever approved by default.
+ * approve or decline. It opens only when the customer clicks a pending transaction;
+ * closing it (Esc) leaves the purchase pending. Nothing is ever approved by default.
  */
 @Component({
   selector: 'app-step-up-modal',
@@ -47,14 +48,13 @@ export class StepUpModal {
   }
 
   protected onCancel(event: Event) {
-    // Esc: defer this purchase instead of closing silently.
+    // Esc closes through the service so the modal state stays in sync.
     event.preventDefault();
-    this.later();
+    this.s.close();
   }
 
-  protected later() {
-    const id = this.s.current()?.authorization_id;
-    if (id) this.s.postpone(id);
+  protected close() {
+    this.s.close();
   }
 
   protected async answer(decision: 'approve' | 'decline') {

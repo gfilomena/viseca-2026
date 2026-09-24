@@ -5,10 +5,10 @@ import type { DecisionRow } from './models';
 
 /**
  * Every purchase paused for the customer (step_up) needs an explicit answer.
- * This service keeps the queue of pending purchases, oldest first, and drives the
- * global approve/decline modal. "Later" only hides one purchase from the modal; it
- * stays pending (and in the inbox) until the customer answers or the window expires.
- * An unanswered purchase is never approved.
+ * This service keeps the pending purchases (for the header badge) and drives the
+ * approve/decline modal, which opens only when the customer clicks a pending
+ * transaction. Closing it leaves the purchase pending until it is answered or the
+ * window expires; an unanswered purchase is never approved.
  */
 @Injectable({ providedIn: 'root' })
 export class StepUpService {
@@ -16,19 +16,14 @@ export class StepUpService {
   private live = inject(LiveService);
 
   readonly pending = signal<DecisionRow[]>([]);
-  private readonly later = signal<Set<string>>(new Set());
   /** Full record (with the cart) of the purchase in the modal. */
   readonly detail = signal<DecisionRow | null>(null);
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
 
-  /** A purchase the customer explicitly asked to see (e.g. "Decide now" in the chat). */
+  /** The purchase the customer clicked; the modal is open while it is still pending. */
   private readonly focus = signal<string | null>(null);
-  readonly current = computed(() => {
-    const open = this.pending().filter((p) => !this.later().has(p.authorization_id));
-    return open.find((p) => p.authorization_id === this.focus()) ?? open[0] ?? null;
-  });
-  readonly queued = computed(() => this.pending().filter((p) => !this.later().has(p.authorization_id)).length);
+  readonly current = computed(() => this.pending().find((p) => p.authorization_id === this.focus()) ?? null);
 
   constructor() {
     effect(() => {
@@ -49,21 +44,22 @@ export class StepUpService {
     try {
       const rows = await this.api.decisions({ status: 'pending' });
       this.pending.set(rows.sort((a, b) => a.created_at.localeCompare(b.created_at)));
-      // Forget "later" for purchases that are no longer pending.
-      const ids = new Set(rows.map((r) => r.authorization_id));
-      this.later.update((s) => new Set([...s].filter((id) => ids.has(id))));
     } catch { /* connectivity is shown in the header */ }
   }
 
-  /** Bring a pending purchase (back) into the modal, in front of the queue. */
+  /** Open the modal for a pending purchase the customer clicked. */
   open(authorizationId: string) {
-    this.later.update((s) => { const n = new Set(s); n.delete(authorizationId); return n; });
+    this.error.set(null);
     this.focus.set(authorizationId);
     if (!this.pending().some((p) => p.authorization_id === authorizationId)) void this.refresh();
   }
 
-  postpone(authorizationId: string) {
-    this.later.update((s) => new Set(s).add(authorizationId));
+  close() {
+    this.focus.set(null);
+  }
+
+  isPending(authorizationId: string) {
+    return this.pending().some((p) => p.authorization_id === authorizationId);
   }
 
   async resolve(authorizationId: string, decision: 'approve' | 'decline', note?: string): Promise<boolean> {
@@ -72,6 +68,7 @@ export class StepUpService {
     try {
       await this.api.resolve(authorizationId, decision, note);
       this.pending.update((list) => list.filter((p) => p.authorization_id !== authorizationId));
+      this.close();
       await this.refresh();
       return true;
     } catch (e) {

@@ -101,19 +101,20 @@ The home page is a chat with a **simulated shopping agent**, to try wallet contr
 
 1. Pick the wallet policy that guards the agent and type a request, e.g.
    *"Buy the 27-inch monitor at PixelHarbor for CHF 289"*.
-2. **Review**: the agent (`backend/src/agent/shopping-agent.ts`) structures it into a proposed purchase
-   — catalogue product, shop, price, quantity, delivery, return terms, device, and the shop's product
-   text — with its assumptions and questions (e.g. a shop name that imitates one you know). Every
-   field can be edited, including the untrusted shop text, to try a prompt injection.
+2. **Review**: the agent (`backend/src/agent/shopping-agent.ts`) shows, read-only, what it understood
+   — catalogue product, quantity, price, delivery, shop and total — with its assumptions and questions
+   (e.g. a shop name that imitates one you know). There are no extra options to tweak: if it is not
+   right, cancel and ask again. The customer's wallet policy alone decides.
 3. **Try to buy**: the agent submits it as a schema-valid authorization event and wallet control
    answers `approve`, `decline` or `step_up`, with the checks and evidence.
 
-**Asked you = an answer is expected.** Every step-up — from the chat, a scenario replay or the hosted
-simulator — opens a modal on any page: why it was paused, what exactly would be bought (with the
-untrusted shop text, flagged if it tried to give instructions), the impact on rolling limits and a
-countdown, with **Approve** / **Decline** and an optional note. Several step-ups queue oldest first.
-*Later* (or Esc) only defers it; it stays pending in the inbox, and if nobody answers in time the
-purchase is not made. Each answer is logged by the backend (`[resolve]` with origin and user agent).
+**Asked you = an answer is expected.** A step-up (from the chat, a scenario replay or the hosted
+simulator) is marked *Waiting for you*. Clicking that transaction — the row in *All transactions*, the
+*Decide* button on its chat card, or the pending row in *Purchases* — opens a modal: why it was paused,
+what exactly would be bought (with the untrusted shop text, flagged if it tried to give instructions),
+the impact on rolling limits and a countdown, with **Approve** / **Decline** and an optional note.
+Closing it keeps the purchase waiting; if nobody answers in time it is not made. Each answer is logged
+by the backend (`[resolve]` with origin and user agent).
 
 As the brief requires, wallet control is independent of the agent: the request and the offer can
 never change the policy, which is read as currently confirmed (tightening applies immediately,

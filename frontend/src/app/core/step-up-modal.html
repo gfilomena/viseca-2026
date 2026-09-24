@@ -2,7 +2,6 @@
   @if (d(); as d) {
     <header>
       <span class="badge step_up">Your decision is needed</span>
-      @if (s.queued() > 1) { <span class="faint">1 of {{ s.queued() }} waiting</span> }
       <span class="spacer"></span>
       @if (secondsLeft() !== null) { <span class="timer" [class.low]="secondsLeft()! <= 30">{{ secondsLeft() }}s left</span> }
     </header>
@@ -50,11 +49,11 @@
     @if (s.error()) { <div class="callout error" role="alert">{{ s.error() }}</div> }
 
     <footer>
-      <button type="button" class="btn link" (click)="later()" [disabled]="s.busy()">Later</button>
+      <button type="button" class="btn link" (click)="close()" [disabled]="s.busy()">Close</button>
       <span class="spacer"></span>
       <button type="button" class="btn decline" (click)="answer('decline')" [disabled]="s.busy()">Decline</button>
       <button type="button" class="btn approve" (click)="answer('approve')" [disabled]="s.busy()">Approve</button>
     </footer>
-    <p class="faint small">If you do not answer in time the purchase is not made.</p>
+    <p class="faint small">Closing keeps it waiting. If you do not answer in time the purchase is not made.</p>
   }
 </dialog>

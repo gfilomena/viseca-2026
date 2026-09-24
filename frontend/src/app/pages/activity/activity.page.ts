@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService, errorText } from '../../core/api.service';
 import { LiveService } from '../../core/live.service';
+import { StepUpService } from '../../core/step-up.service';
 import type { Check, DecisionRow, Run } from '../../core/models';
 
 const DECISION_LABEL: Record<string, string> = { approve: 'Approved', decline: 'Declined', step_up: 'Asked you' };
@@ -20,6 +21,7 @@ export class ActivityPage {
   private api = inject(ApiService);
   private live = inject(LiveService);
   private router = inject(Router);
+  protected stepUps = inject(StepUpService);
 
   /** Bound from ?run= */
   readonly run = input<string | undefined>();
@@ -35,7 +37,6 @@ export class ActivityPage {
   protected selected = signal<DecisionRow | null>(null);
   protected error = signal<string | null>(null);
   protected now = signal(Date.now());
-  protected notes: Record<string, string> = {};
 
   protected currentRun = computed(() => this.runs().find((r) => r.id === this.runId()) ?? null);
   protected stats = computed(() => {
@@ -90,16 +91,6 @@ export class ActivityPage {
   protected secondsLeft(row: DecisionRow) {
     if (!row.human_deadline_at) return null;
     return Math.max(0, Math.round((Date.parse(row.human_deadline_at) - this.now()) / 1000));
-  }
-
-  protected async resolve(row: DecisionRow, decision: 'approve' | 'decline') {
-    this.error.set(null);
-    try {
-      await this.api.resolve(row.authorization_id, decision, this.notes[row.authorization_id]);
-      await this.refresh();
-    } catch (e) {
-      this.error.set(errorText(e));
-    }
   }
 
   protected summary(row: DecisionRow) {

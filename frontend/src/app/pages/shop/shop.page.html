@@ -50,49 +50,15 @@
                     </div>
                   }
 
-                  <fieldset [disabled]="r.state !== 'open'">
-                    <div class="form-grid">
-                      <label class="field wide">Product
-                        <select [(ngModel)]="r.offer.item_id">
-                          @for (it of options()?.items ?? []; track it.item_id) {
-                            <option [value]="it.item_id">{{ it.item_name }} · {{ it.item_category }}</option>
-                          }
-                        </select>
-                      </label>
-                      <label class="field">Quantity
-                        <input type="number" min="1" max="99" [(ngModel)]="r.offer.quantity" />
-                      </label>
-                      <label class="field">Price per unit (CHF)
-                        <input type="number" min="0.05" step="0.05" [(ngModel)]="r.offer.unit_price_chf" />
-                      </label>
-                      <label class="field wide">Shop
-                        <select [(ngModel)]="r.offer.merchant_id">
-                          @for (m of options()?.merchants ?? []; track m.merchant_id) {
-                            <option [value]="m.merchant_id">{{ m.merchant_name }} · {{ m.merchant_category }} · {{ m.merchant_country }}{{ m.familiar_purchases ? ' · used ' + m.familiar_purchases + '×' : ' · never used' }}</option>
-                          }
-                        </select>
-                      </label>
-                      <label class="field">Delivery fee (CHF)
-                        <input type="number" min="0" step="0.5" [(ngModel)]="r.offer.delivery_fee_chf" />
-                      </label>
-                      <label class="field">Returns
-                        <select [(ngModel)]="r.offer.order_returnable">
-                          <option value="true">Returnable</option>
-                          <option value="false">Not returnable</option>
-                          <option value="unknown">Not stated</option>
-                          <option value="not_applicable">Not applicable</option>
-                        </select>
-                      </label>
-                      <label class="field wide">Device the agent uses
-                        <select [(ngModel)]="r.offer.customer_device_id">
-                          @for (d of options()?.devices ?? []; track d.id) { <option [value]="d.id">{{ d.label }}</option> }
-                        </select>
-                      </label>
-                      <label class="field full">Shop's product text <span class="faint">(written by the shop, untrusted: try adding an instruction to see what happens)</span>
-                        <textarea rows="2" [(ngModel)]="r.offer.item_details"></textarea>
-                      </label>
-                    </div>
-                  </fieldset>
+                  <dl class="summary">
+                    <div><dt>Product</dt><dd>{{ r.data.item?.item_name ?? 'Not found' }} <span class="faint">{{ r.data.item?.item_category }}</span></dd></div>
+                    <div><dt>Quantity</dt><dd>{{ r.offer.quantity }}</dd></div>
+                    <div><dt>Price</dt><dd>{{ r.offer.unit_price_chf | currency: 'CHF ' }} per unit</dd></div>
+                    <div><dt>Delivery</dt><dd>{{ r.offer.fulfillment_method === 'digital' ? 'Digital' : (r.offer.delivery_fee_chf | currency: 'CHF ') }}</dd></div>
+                    <div><dt>Shop</dt><dd>{{ r.data.merchant?.merchant_name ?? 'Not found' }}
+                      @if (r.data.merchant; as m) { <span class="faint">{{ m.merchant_city }}, {{ m.merchant_country }} · {{ m.familiar_purchases ? 'used ' + m.familiar_purchases + '×' : 'never used' }}</span> }</dd></div>
+                    <div><dt>Total</dt><dd><strong>{{ total(r.offer) | currency: 'CHF ' }}</strong></dd></div>
+                  </dl>
 
                   <ul class="notes">
                     @for (n of r.data.notes; track $index) { <li>{{ n }}</li> }
@@ -100,7 +66,7 @@
 
                   @if (r.state === 'open') {
                     <div class="row">
-                      <span class="muted">Total about <strong>{{ total(r.offer) | currency: 'CHF ' }}</strong> at {{ merchantOf(r.offer.merchant_id)?.merchant_name ?? '—' }}</span>
+                      <span class="muted">Your wallet policy decides if it can be paid.</span>
                       <span class="spacer"></span>
                       <button class="btn" (click)="cancel(msg)">Cancel</button>
                       <button class="btn primary" (click)="tryToBuy(r)" [disabled]="busy() || !r.offer.item_id || !r.offer.merchant_id">Try to buy</button>
@@ -142,7 +108,7 @@
                     <div class="row">
                       <span class="faint">Waiting for your decision · {{ secondsLeft(d) }}s left</span>
                       <span class="spacer"></span>
-                      <button class="btn primary" (click)="decideNow(d.authorization_id)">Decide now</button>
+                      <button class="btn primary" (click)="decideNow(d.authorization_id)">Decide</button>
                     </div>
                   }
                 </div>
@@ -154,8 +120,8 @@
       </div>
 
       @if (mandate()) {
-        <form class="composer" (ngSubmit)="send()">
-          <input name="msg" placeholder="e.g. Buy the 27-inch monitor at PixelHarbor for CHF 289" [ngModel]="input()" (ngModelChange)="input.set($event)" autocomplete="off" aria-label="Message to the shopping agent" />
+        <form class="composer" (ngSubmit)="send(box)">
+          <input #box name="msg" placeholder="e.g. Buy the 27-inch monitor at PixelHarbor for CHF 289" [ngModel]="input()" (ngModelChange)="input.set($event)" (keydown.enter)="$event.preventDefault(); send(box)" autocomplete="off" aria-label="Message to the shopping agent" />
           <button class="btn primary" type="submit" [disabled]="busy() || !input().trim()">Send</button>
         </form>
       } @else {
@@ -204,14 +170,16 @@
         </thead>
         <tbody>
           @for (r of rows(); track r.authorization_id) {
-            <tr>
+            <tr [class.clickable]="r.status === 'pending'" (click)="r.status === 'pending' && decideNow(r.authorization_id)"
+                [attr.title]="r.status === 'pending' ? 'Click to approve or decline' : null">
               <td class="nowrap">{{ r.created_at | date: 'MMM d, HH:mm:ss' }}</td>
               <td class="nowrap"><span class="chip">{{ source(r) }}</span></td>
               <td>{{ r.merchant_name }}</td>
               <td class="basket">{{ (r.items ?? []).join(', ') }}</td>
               <td class="num">{{ r.billing_amount_chf | number: '1.2-2' }}</td>
               <td><span class="badge" [class]="r.engine_decision">{{ decisionLabel[r.engine_decision] }}</span></td>
-              <td><span class="badge" [class]="r.status">{{ statusLabel[r.status] }}</span></td>
+              <td><span class="badge" [class]="r.status">{{ statusLabel[r.status] }}</span>
+                @if (r.status === 'pending') { <span class="decide-hint">Decide ›</span> }</td>
               <td class="why">{{ summary(r) }}</td>
             </tr>
           } @empty {
