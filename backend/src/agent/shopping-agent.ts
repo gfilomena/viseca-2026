@@ -26,6 +26,13 @@ import { fxRates } from '../services/catalog.ts';
 export interface OfferItem { item_id: string; item_name: string; item_category: string; typical_chf: number; min_chf: number; max_chf: number; score?: number }
 export interface OfferMerchant { merchant_id: string; merchant_name: string; merchant_category: string; merchant_country: string; merchant_city: string; familiar_purchases: number }
 
+/**
+ * Field names mirror the official item/authorization schema (resource/data/schemas/
+ * authorization_event.schema.json) so matching an offer against wallet-policy rules and
+ * building the final AuthorizationEvent from it need no renaming: unit_price and
+ * delivery_fee are in `currency` (never suffixed "_chf") — only a fully normalised total
+ * (billing_amount_chf) ever carries that suffix, exactly as the schema does it.
+ */
 export interface PurchaseOffer {
   request_text: string;
   item_id: string | null;
@@ -33,14 +40,15 @@ export interface PurchaseOffer {
   item_name: string | null;
   item_category: string | null;
   quantity: number;
-  unit_price_chf: number | null;
-  budget_chf: number | null;
+  unit_price: number | null;
+  currency: Currency;
+  budget: number | null;
   merchant_id: string | null;
   size: string | null;
   customer_device_id: string;
   item_details: string;
   order_returnable: TermFlag;
-  delivery_fee_chf: number;
+  delivery_fee: number;
   fulfillment_method: 'delivery' | 'digital' | 'pickup';
 }
 
@@ -252,14 +260,15 @@ export function interpretRequest(db: DatabaseSync, cardId: string, text: string)
       item_name: itemName,
       item_category: itemCategory,
       quantity,
-      unit_price_chf: unit != null ? roundHalfEven(unit) : null,
-      budget_chf: budget,
+      unit_price: unit != null ? roundHalfEven(unit) : null,
+      currency: 'CHF',
+      budget,
       merchant_id: merchant?.merchant_id ?? null,
       size,
       customer_device_id: device,
       item_details: details,
       order_returnable: digital ? 'not_applicable' : 'true',
-      delivery_fee_chf: itemCategory === 'groceries' ? 6 : 0,
+      delivery_fee: itemCategory === 'groceries' ? 6 : 0,
       fulfillment_method: digital ? 'digital' : 'delivery',
     },
     item: catalogueItem, merchant, item_candidates: candidates, notes, questions,

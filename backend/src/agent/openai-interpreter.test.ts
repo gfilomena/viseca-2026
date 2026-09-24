@@ -13,24 +13,24 @@ const fake = (parsed: unknown, finish_reason = 'stop') => ({
   chat: { completions: { parse: async () => ({ choices: [{ finish_reason, message: { parsed } }] }) } },
 }) as any;
 
-const base = { item_id: null, item_name: null, item_category: null, quantity: 1, unit_price_chf: null, budget_chf: null, merchant_id: null, size: null, fulfillment_method: 'delivery' as const, notes: [], questions: [] };
+const base = { item_id: null, item_name: null, item_category: null, quantity: 1, unit_price: null, budget: null, merchant_id: null, size: null, fulfillment_method: 'delivery' as const, notes: [], questions: [] };
 
 test('a bare "N <product>" free-text request is turned into an offer, quantity and price read correctly', async () => {
   const out = await interpretRequestOpenAI('buy 2 drones from PixelHarbor for 300chf each', opts, fake({
-    ...base, item_name: 'Drones', item_category: 'electronics', quantity: 2, unit_price_chf: 300, merchant_id: 'ME0022', notes: ['Drones, CHF 300 each, from PixelHarbor.'],
+    ...base, item_name: 'Drones', item_category: 'electronics', quantity: 2, unit_price: 300, merchant_id: 'ME0022', notes: ['Drones, CHF 300 each, from PixelHarbor.'],
   }));
   assert.ok(out);
   assert.equal(out!.offer.item_name, 'Drones');
   assert.equal(out!.offer.item_category, 'electronics');
   assert.equal(out!.offer.quantity, 2);
-  assert.equal(out!.offer.unit_price_chf, 300);
+  assert.equal(out!.offer.unit_price, 300);
   assert.equal(out!.offer.merchant_id, 'ME0022');
   assert.equal(out!.item, null); // not a catalogue match
 });
 
 test('a catalogue match fills in the real item id, category and reference price', async () => {
   const out = await interpretRequestOpenAI('Buy the 27-inch monitor at PixelHarbor for CHF 289', opts, fake({
-    ...base, item_id: 'IT0017', item_name: '27-inch monitor', unit_price_chf: 289, merchant_id: 'ME0022',
+    ...base, item_id: 'IT0017', item_name: '27-inch monitor', unit_price: 289, merchant_id: 'ME0022',
   }));
   assert.ok(out);
   assert.equal(out!.offer.item_id, 'IT0017');

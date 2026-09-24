@@ -165,7 +165,7 @@ export class ShopPage {
     if (!m || this.busy()) return;
     this.busy.set(true);
     try {
-      const d = await this.api.buy(m.id, { ...msg.offer, quantity: Number(msg.offer.quantity), unit_price_chf: Number(msg.offer.unit_price_chf), delivery_fee_chf: Number(msg.offer.delivery_fee_chf) });
+      const d = await this.api.buy(m.id, { ...msg.offer, quantity: Number(msg.offer.quantity), unit_price: Number(msg.offer.unit_price), delivery_fee: Number(msg.offer.delivery_fee) });
       this.chat.update(msg.id, { state: 'sent' } as Partial<ChatMessage>);
       this.decisions.update((all) => ({ ...all, [d.authorization_id]: d }));
       this.chat.push({ kind: 'decision', authorizationId: d.authorization_id });
@@ -188,7 +188,7 @@ export class ShopPage {
   protected newChat() { this.chat.clear(); }
 
   // ---- helpers for the template ------------------------------------------
-  protected total(o: PurchaseOffer) { return (Number(o.unit_price_chf) || 0) * (Number(o.quantity) || 0) + (Number(o.delivery_fee_chf) || 0); }
+  protected total(o: PurchaseOffer) { return (Number(o.unit_price) || 0) * (Number(o.quantity) || 0) + (Number(o.delivery_fee) || 0); }
   protected secondsLeft(d: DecisionRow) {
     return d.human_deadline_at ? Math.max(0, Math.round((Date.parse(d.human_deadline_at) - this.now()) / 1000)) : null;
   }
