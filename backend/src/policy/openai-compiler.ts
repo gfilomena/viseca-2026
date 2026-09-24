@@ -44,6 +44,8 @@ Rules use only these fields:
   otherwise use itemCategory, or add neither and leave a question if the product is unclear.
 - ${FIELDS.merchantCategory}: in / not_in with value_list from the merchant categories given below.
 - ${FIELDS.merchantCountry}: in / not_in with ISO-3166 alpha-2 country codes.
+- ${FIELDS.currency}: in / not_in with ISO currency codes (CHF, EUR, GBP, USD) — the currency the purchase is
+  charged in ("only pay in CHF" / "no foreign currency"), not the amount limit itself.
 - ${FIELDS.familiarity}: >= N earlier approved purchases at that exact shop (3 for "regularly", 1 for
   "before"/"familiar").
 - ${FIELDS.returnDays}: >= N days the order must be returnable.
@@ -55,8 +57,15 @@ Rules use only these fields:
 - ${FIELDS.localHour}: Swiss local hour, >= start and/or < end.
 
 Only add a rule the instruction actually states; never invent a number, never loosen an implied limit, and
-never repeat the same check twice. Each rule needs a short plain-English explanation and the exact source
-phrase it came from. uncertainty_policy is "decline" only if the instruction says to decline/reject when
+never repeat the same check twice. If the instruction states a constraint that has no matching field above
+(item condition/new-vs-refurbished, who pays return shipping, a named-shop whitelist like "only Migros or
+Coop", a day-of-week restriction, ...), do not force it onto the closest-sounding field — put it in
+open_questions instead. In particular, never emit a numeric rule that is always true regardless of the
+purchase, such as "at least 0" on any numeric field (every real value already satisfies that) — a rule like
+that reads as enforced but enforces nothing; if you cannot state a real threshold for what the customer
+asked, that is the sign it belongs in open_questions, not a fabricated rule. Each rule needs a short
+plain-English explanation and the exact source phrase it came from. uncertainty_policy is "decline" only if
+the instruction says to decline/reject when
 unsure, "approve" only if it says to proceed when unsure, otherwise "ask" (the safe default — also set it to
 "ask" and add an open_question if the instruction never says what to do when uncertain). session_strict is
 true only if the instruction mentions someone else driving the session, account takeover, or hijacking.

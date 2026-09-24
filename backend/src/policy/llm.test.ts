@@ -62,3 +62,18 @@ test('rule conversion enforces the vocabulary', () => {
   assert.equal(typeof toRule({ ...base, field: 'merchant.merchant_country', operator: 'in', value_list: ['Switzerland'] } as any, ctx), 'string');
   assert.deepEqual(toRule({ ...base, field: 'items.attribute.size', operator: '=', value_text: 'm' } as any, ctx), { field: 'items.attribute.size', operator: '=', value: 'M' });
 });
+
+test('a numeric rule that is always true (">= 0") is rejected, not silently accepted', () => {
+  // Regression: a constraint with no matching field ("only pay in CHF") was observed getting
+  // mis-mapped onto authorization.billing_amount_chf >= 0 and authorization.return_window_days >= 0 —
+  // both trivially true for every real purchase, so the "rule" enforced nothing.
+  assert.equal(typeof toRule({ ...base, field: 'authorization.billing_amount_chf', operator: '>=', value_number: 0 } as any, ctx), 'string');
+  assert.equal(typeof toRule({ ...base, field: 'authorization.return_window_days', operator: '>=', value_number: 0 } as any, ctx), 'string');
+  // A real, non-zero threshold on the same fields is still accepted.
+  assert.equal(typeof toRule({ ...base, field: 'authorization.return_window_days', operator: '>=', value_number: 14 } as any, ctx), 'object');
+});
+
+test('authorization.currency is a real field for "only pay in CHF" style instructions', () => {
+  assert.deepEqual(toRule({ ...base, field: 'authorization.currency', operator: 'in', value_list: ['CHF'] } as any, ctx), { field: 'authorization.currency', operator: 'in', value: ['CHF'] });
+  assert.equal(typeof toRule({ ...base, field: 'authorization.currency', operator: 'in', value_list: ['XYZ'] } as any, ctx), 'string');
+});

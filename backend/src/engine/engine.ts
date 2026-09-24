@@ -69,6 +69,7 @@ const REASON_BY_FIELD: Record<string, string> = {
   [FIELDS.deliveryDays]: 'delivery_too_slow',
   [FIELDS.merchantCategory]: 'merchant_category_not_allowed',
   [FIELDS.merchantCountry]: 'merchant_country_not_allowed',
+  [FIELDS.currency]: 'currency_not_allowed',
   [FIELDS.familiarity]: 'unfamiliar_merchant',
   [FIELDS.quantity]: 'quantity_exceeded',
   [FIELDS.unrequested]: 'unrequested_addon',
@@ -182,6 +183,9 @@ export function evaluate(input: EngineInput): EngineResult {
         break;
       case FIELDS.merchantCountry:
         push(compare(m.merchant_country, rule.operator, rule.value) ? 'pass' : 'fail', `${m.merchant_name} is in ${m.merchant_city}, ${m.merchant_country}.`);
+        break;
+      case FIELDS.currency:
+        push(compare(a.currency, rule.operator, rule.value) ? 'pass' : 'fail', `Charged in ${a.currency}.`);
         break;
       case FIELDS.familiarity:
         push(compare(merchantFamiliarity, rule.operator, rule.value) ? 'pass' : 'fail',

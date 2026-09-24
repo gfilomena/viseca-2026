@@ -9,6 +9,7 @@ const catalogue = (parse(fs.readFileSync(path.resolve(import.meta.dirname, '../.
   .map((r) => ({ item_id: r.item_id, item_name: r.item_name, item_category: r.item_category })) as CatalogueItem[];
 const rules = (t: string) => compileInstruction(t, catalogue).hard_rules
   .map((r) => `${r.field} ${r.operator} ${JSON.stringify(r.value)}${r.scope === 'period' ? ` /${r.period_days}d` : ''}`);
+const c = (id: string) => (parse(fs.readFileSync(path.resolve(import.meta.dirname, '../../../resource/data/scenario_catalogue.csv')), { columns: true }) as any[]).find((r) => r.scenario_id === id).cardholder_instruction;
 
 test('"book" as a verb is not the books category; hotels are recognised', () => {
   const r = rules('Book a hotel in Lucerne under 300 EUR, only between 8 and 20.');
@@ -17,6 +18,13 @@ test('"book" as a verb is not the books category; hotels are recognised', () => 
   assert.ok(r.includes('authorization.billing_amount_chf < 300'));
   assert.ok(r.includes('authorization.local_hour >= 8') && r.includes('authorization.local_hour < 20'));
   assert.ok(rules('Buy me two paperback books.').includes('items.item_category in ["books"]'));
+});
+
+test('"only purchases in Swiss Francs" adds a currency rule, not a false amount/return match', () => {
+  assert.deepEqual(rules('Only purchases in Swiss Francs (CHF) are allowed. Buy groceries up to CHF 80.'),
+    ['authorization.billing_amount_chf <= 80', 'items.item_category in ["groceries"]', 'authorization.currency in ["CHF"]']);
+  // "only" appearing earlier in an unrelated clause must not falsely trigger the currency rule.
+  assert.ok(!rules(c('SCEN0002')).some((r) => r.startsWith('authorization.currency')), rules(c('SCEN0002')).join(' | '));
 });
 
 test('a delivery-time phrase adds a delivery_within_days rule, distinct from the return window', () => {
@@ -34,7 +42,6 @@ test('two amounts in one sentence give a per-purchase and a period limit', () =>
 });
 
 test('the five public instructions keep their interpretation', () => {
-  const c = (id: string) => (parse(fs.readFileSync(path.resolve(import.meta.dirname, '../../../resource/data/scenario_catalogue.csv')), { columns: true }) as any[]).find((r) => r.scenario_id === id).cardholder_instruction;
   assert.deepEqual(rules(c('SCEN0000')), ['authorization.billing_amount_chf <= 20', 'items.item_category in ["groceries"]', 'items.quantity_total <= 1', 'merchant.prior_approved_purchases >= 3']);
   assert.deepEqual(rules(c('SCEN0001')), ['authorization.billing_amount_chf <= 120', 'authorization.billing_amount_chf <= 300 /7d', 'items.item_category in ["groceries"]', 'authorization.fulfillment_method in ["delivery"]']);
   assert.deepEqual(rules(c('SCEN0002')), ['authorization.billing_amount_chf <= 200', 'items.item_id in ["IT0014"]', 'items.attribute.size = "43"', 'authorization.return_window_days >= 14', 'merchant.merchant_category in ["sporting_goods"]']);
