@@ -28,3 +28,6 @@ BUILD ✅ · VERIFY ✅ (tsc, build, browser: 20 users, no-policy user, policy u
 
 ## Audit fixes P1/P2 + optional policy LLM — feat/audit-fixes
 DEFINE ✅ (audit) · PLAN ✅ · BUILD ✅ · VERIFY ✅ (49 tests, build, browser: platform card, replace warning) · REVIEW ⬜ · SHIP ✅ (PR + merge on fork)
+
+## Wallet policy: input only + active policies table — feat/policy-input-only
+BUILD ✅ · VERIFY ✅ (50 tests, build, browser 633px cards + 1280px table, draft for a customer without scenario) · SHIP ✅ (PR + merge on fork)

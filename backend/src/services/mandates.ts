@@ -67,13 +67,30 @@ function save(m: Mandate) {
   publish({ type: 'mandate', mandate_id: m.id });
 }
 
+/**
+ * The card a customer's policy applies to: the card their agent is delegated on
+ * (scenario authority) if any, otherwise their most used card in the history.
+ */
+export function cardForCustomer(customerId: string): string | null {
+  const db = getDb();
+  const delegated = db.prepare('SELECT card_id FROM scenario_authorities WHERE customer_id = ? ORDER BY authority_id LIMIT 1').get(customerId) as { card_id: string } | undefined;
+  if (delegated) return delegated.card_id;
+  const busiest = db.prepare(`SELECT c.card_id, COUNT(h.authorization_id) AS n FROM cards c JOIN accounts a ON a.account_id = c.account_id
+    LEFT JOIN authorization_history h ON h.card_id = c.card_id AND h.status = 'approved'
+    WHERE a.customer_id = ? GROUP BY c.card_id ORDER BY n DESC, c.card_id LIMIT 1`).get(customerId) as { card_id: string } | undefined;
+  return busiest?.card_id ?? null;
+}
+
 /** Step 1: interpret the customer's words into a reviewable draft (nothing is enforced yet). */
-export function createDraft(instruction: string, scenarioId: string | null = null): Mandate {
+export function createDraft(instruction: string, scenarioId: string | null = null, customerId: string | null = null): Mandate {
   if (!instruction?.trim()) throw new PolicyError('Instruction is required');
+  if (customerId && !getDb().prepare('SELECT 1 FROM customers WHERE customer_id = ?').get(customerId)) throw new PolicyError(`Unknown customer ${customerId}`, 404);
   const d = compileInstruction(instruction, catalogueItems());
-  const card = scenarioId
-    ? (getDb().prepare('SELECT a.card_id FROM purchase_attempts p JOIN scenario_authorities a ON a.authority_id = p.authority_id WHERE p.scenario_id = ? LIMIT 1').get(scenarioId) as { card_id: string } | undefined)?.card_id ?? null
-    : null;
+  const card = customerId
+    ? cardForCustomer(customerId)
+    : scenarioId
+      ? (getDb().prepare('SELECT a.card_id FROM purchase_attempts p JOIN scenario_authorities a ON a.authority_id = p.authority_id WHERE p.scenario_id = ? LIMIT 1').get(scenarioId) as { card_id: string } | undefined)?.card_id ?? null
+      : null;
   const prefs = card
     ? (getDb().prepare('SELECT cu.shopping_preferences AS p FROM cards c JOIN accounts a ON a.account_id = c.account_id JOIN customers cu ON cu.customer_id = a.customer_id WHERE c.card_id = ?').get(card) as { p: string } | undefined)?.p
     : undefined;
@@ -96,8 +113,8 @@ export function createDraft(instruction: string, scenarioId: string | null = nul
  * Draft + optional language-model review (POLICY_LLM=on). The review can only add
  * clearly-marked rules and questions; on any failure the built-in draft is kept.
  */
-export async function createReviewedDraft(instruction: string, scenarioId: string | null = null): Promise<Mandate> {
-  const m = createDraft(instruction, scenarioId);
+export async function createReviewedDraft(instruction: string, scenarioId: string | null = null, customerId: string | null = null): Promise<Mandate> {
+  const m = createDraft(instruction, scenarioId, customerId);
   if (!llmConfig.enabled) return m;
   const merchantCategories = (getDb().prepare('SELECT DISTINCT merchant_category AS c FROM merchants ORDER BY c').all() as { c: string }[]).map((r) => r.c);
   const { draft, note } = await reviewDraft({

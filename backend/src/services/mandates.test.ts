@@ -45,3 +45,14 @@ test('policies on different cards are independent', async () => {
   assert.deepEqual(b.replaced_ids, []);
   assert.equal(getMandate(a.id).status, 'active');
 });
+
+test('a policy written for a customer applies to their card', async () => {
+  const { cardForCustomer } = await import('./mandates.ts');
+  assert.equal(cardForCustomer('CU0019'), 'CA0039'); // delegated card of their scenario
+  const other = cardForCustomer('CU0002'); // no scenario: their most used card
+  assert.ok(other && other.startsWith('CA'));
+  const m = createDraft('Groceries only, up to CHF 80 per order. Ask me when uncertain.', null, 'CU0006');
+  assert.equal(m.card_id, 'CA0011');
+  assert.equal(m.scenario_id, null);
+  assert.throws(() => createDraft('Groceries only.', null, 'CU9999'), /Unknown customer/);
+});

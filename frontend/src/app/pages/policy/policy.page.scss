@@ -1,12 +1,4 @@
 .step { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 12px; margin-right: 6px; }
-.scenarios { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
-.scenario {
-  text-align: left; display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; cursor: pointer;
-  border: 1px solid var(--line); background: var(--surface); font: inherit; color: var(--ink);
-}
-.scenario:hover { border-color: #cfd4dc; }
-.scenario.on { border-color: var(--accent); background: var(--accent-soft); }
-
 .rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: r; }
 .rule { display: grid; grid-template-columns: 1fr 190px; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
 .rule-main { display: grid; gap: 6px; }
@@ -17,16 +9,53 @@
 .guidance, .audit { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; color: var(--ink-2); }
 .audit { list-style: none; padding: 0; }
 
-.mandate { border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 12px; }
-.mandate-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 blockquote { margin: 0; color: var(--ink-2); font-style: italic; max-width: 80ch; }
 .labels { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
 .labels li { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; font-size: 13px; }
-.actions { align-self: start; }
-.run select { width: auto; min-width: 240px; }
 .tighten { background: var(--surface-2); border-radius: 10px; padding: 12px; }
 .tighten-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: end; }
 .check { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 .check input { width: auto; }
 
 .chip.model { background: var(--accent-soft); color: var(--accent); border-color: #c7d5f7; }
+
+.for select { max-width: 360px; }
+.block { display: block; }
+.tabular, .num { font-variant-numeric: tabular-nums; }
+
+/* Policies table */
+.policies { width: 100%; border-collapse: collapse; }
+.policies th { white-space: nowrap; }
+.policies td:first-child { min-width: 200px; }
+.policies td { vertical-align: middle; }
+.policies .instruction { max-width: 420px; color: var(--ink-2); font-style: italic; }
+.policies .clamp { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.policies .actions { white-space: nowrap; text-align: right; }
+.policies .actions .btn + .btn { margin-left: 6px; }
+.policies tr.open > td { background: var(--surface-2); border-bottom-color: transparent; }
+.policies tr.details > td { background: var(--surface-2); padding: 4px 12px 16px; }
+.details-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px 24px; }
+.details-grid .tighten, .details-grid .history { grid-column: 1 / -1; }
+.details-grid select { width: auto; min-width: 220px; max-width: 100%; }
+.policies.past { margin-top: 8px; }
+
+/* Phones and small tablets: each row becomes a stacked card, no horizontal scroll */
+@media (max-width: 767px) {
+  .policies thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .policies, .policies tbody, .policies tr, .policies td { display: block; width: 100%; }
+  .policies tr { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
+  .policies tr.open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0; }
+  .policies tr.details { border-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
+  .policies td { border: 0; padding: 6px 0; }
+  .policies td:first-child { min-width: 0; }
+  .policies td[data-label]::before {
+    content: attr(data-label); display: block; font-size: 12px; font-weight: 600; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px;
+  }
+  .policies td.instruction { max-width: none; }
+  .policies td.num { text-align: left; }
+  .policies .actions { text-align: left; white-space: normal; display: flex; gap: 8px; flex-wrap: wrap; padding-top: 10px; }
+  .policies .actions .btn + .btn { margin-left: 0; }
+  .policies .actions .btn { min-height: 44px; padding-inline: 14px; }
+  .details-grid { grid-template-columns: minmax(0, 1fr); }
+}

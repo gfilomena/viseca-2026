@@ -69,8 +69,8 @@ export async function routes(app: FastifyInstance) {
   app.get<{ Params: { id: string } }>('/api/mandates/:id', async (req, reply) => {
     try { const m = getMandate(req.params.id); return { ...m, rule_labels: m.hard_rules.map(describeRule) }; } catch (e) { return fail(reply, e); }
   });
-  app.post<{ Body: { instruction: string; scenario_id?: string } }>('/api/mandates', async (req, reply) => {
-    try { return reply.code(201).send(await createReviewedDraft(req.body.instruction, req.body.scenario_id ?? null)); } catch (e) { return fail(reply, e); }
+  app.post<{ Body: { instruction: string; scenario_id?: string; customer_id?: string } }>('/api/mandates', async (req, reply) => {
+    try { return reply.code(201).send(await createReviewedDraft(req.body.instruction, req.body.scenario_id ?? null, req.body.customer_id ?? null)); } catch (e) { return fail(reply, e); }
   });
   app.put<{ Params: { id: string }; Body: any }>('/api/mandates/:id/draft', async (req, reply) => {
     try { return editDraft(req.params.id, req.body as any); } catch (e) { return fail(reply, e); }
