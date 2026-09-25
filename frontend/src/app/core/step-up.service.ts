@@ -4,11 +4,15 @@ import { LiveService } from './live.service';
 import type { DecisionRow } from './models';
 
 /**
- * Every purchase paused for the customer (step_up) needs an explicit answer.
- * This service keeps the pending purchases (for the header badge) and drives the
- * approve/decline modal, which opens only when the customer clicks a pending
- * transaction. Closing it leaves the purchase pending until it is answered or the
- * window expires; an unanswered purchase is never approved.
+ * Every purchase paused for the customer (step_up) needs an explicit answer within
+ * the 120s window (server-enforced: config.humanWindowSeconds). This service keeps
+ * the pending purchases (for the header badge) and drives the approve/decline modal.
+ * The modal opens on its own for any pending purchase the customer hasn't already
+ * dismissed — like a payment-approval push notification — so a step_up is never
+ * missed just because the customer didn't go looking for it. Closing it without
+ * answering leaves the purchase pending (dismissed ones don't reopen themselves,
+ * but stay visible in the pending lists) until it is answered or the window expires;
+ * an unanswered purchase is never approved — the backend expires it automatically.
  */
 @Injectable({ providedIn: 'root' })
 export class StepUpService {
@@ -21,8 +25,10 @@ export class StepUpService {
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
 
-  /** The purchase the customer clicked; the modal is open while it is still pending. */
+  /** The purchase shown in the modal; open for any pending item until closed. */
   private readonly focus = signal<string | null>(null);
+  /** Purchases the customer closed without answering: won't auto-reopen, but stay pending. */
+  private readonly dismissed = new Set<string>();
   readonly current = computed(() => this.pending().find((p) => p.authorization_id === this.focus()) ?? null);
 
   constructor() {
@@ -43,18 +49,29 @@ export class StepUpService {
   async refresh() {
     try {
       const rows = await this.api.decisions({ status: 'pending' });
-      this.pending.set(rows.sort((a, b) => a.created_at.localeCompare(b.created_at)));
+      const sorted = rows.sort((a, b) => a.created_at.localeCompare(b.created_at));
+      this.pending.set(sorted);
+      // Surface the modal on its own for the oldest pending purchase not already dismissed,
+      // unless one is already open — never interrupt an answer in progress.
+      if (!this.focus()) {
+        const next = sorted.find((p) => !this.dismissed.has(p.authorization_id));
+        if (next) this.focus.set(next.authorization_id);
+      }
     } catch { /* connectivity is shown in the header */ }
   }
 
-  /** Open the modal for a pending purchase the customer clicked. */
+  /** Open the modal for a pending purchase (auto-surfaced, or the customer clicked one). */
   open(authorizationId: string) {
     this.error.set(null);
+    this.dismissed.delete(authorizationId);
     this.focus.set(authorizationId);
     if (!this.pending().some((p) => p.authorization_id === authorizationId)) void this.refresh();
   }
 
+  /** Closing without answering marks it dismissed so it won't reopen itself; it stays pending. */
   close() {
+    const id = this.focus();
+    if (id) this.dismissed.add(id);
     this.focus.set(null);
   }
 
@@ -68,7 +85,8 @@ export class StepUpService {
     try {
       await this.api.resolve(authorizationId, decision, note);
       this.pending.update((list) => list.filter((p) => p.authorization_id !== authorizationId));
-      this.close();
+      this.dismissed.delete(authorizationId);
+      this.focus.set(null);
       await this.refresh();
       return true;
     } catch (e) {
