@@ -13,11 +13,16 @@ import type { DecisionRow } from './models';
  * answering leaves the purchase pending (dismissed ones don't reopen themselves,
  * but stay visible in the pending lists) until it is answered or the window expires;
  * an unanswered purchase is never approved — the backend expires it automatically.
+ *
+ * When the tab isn't in the foreground, a newly-surfaced step-up also fires a browser
+ * Notification (permission permitting) — the same "your bank needs you" alert a native
+ * wallet app would show. Clicking it focuses the tab, where the modal is already open.
  */
 @Injectable({ providedIn: 'root' })
 export class StepUpService {
   private api = inject(ApiService);
   private live = inject(LiveService);
+  private notifyPermissionAsked = false;
 
   readonly pending = signal<DecisionRow[]>([]);
   /** Full record (with the cart) of the purchase in the modal. */
@@ -55,9 +60,27 @@ export class StepUpService {
       // unless one is already open — never interrupt an answer in progress.
       if (!this.focus()) {
         const next = sorted.find((p) => !this.dismissed.has(p.authorization_id));
-        if (next) this.focus.set(next.authorization_id);
+        if (next) { this.focus.set(next.authorization_id); this.notify(next); }
       }
     } catch { /* connectivity is shown in the header */ }
+  }
+
+  /** Fire a browser Notification for a step-up while the tab is backgrounded; the modal already covers the foreground case. */
+  private notify(row: DecisionRow) {
+    if (typeof Notification === 'undefined' || document.visibilityState === 'visible') return;
+    const fire = () => {
+      const n = new Notification('Approval needed', {
+        body: `Pay CHF ${row.billing_amount_chf.toFixed(2)} to ${row.merchant_name}?`,
+        icon: '/favicon.ico',
+        tag: row.authorization_id, // replaces any stale notification for the same purchase instead of stacking
+      });
+      n.onclick = () => { window.focus(); n.close(); };
+    };
+    if (Notification.permission === 'granted') fire();
+    else if (Notification.permission === 'default' && !this.notifyPermissionAsked) {
+      this.notifyPermissionAsked = true;
+      Notification.requestPermission().then((p) => { if (p === 'granted') fire(); });
+    }
   }
 
   /** Open the modal for a pending purchase (auto-surfaced, or the customer clicked one). */
