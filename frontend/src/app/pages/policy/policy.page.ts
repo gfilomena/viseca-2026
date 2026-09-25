@@ -79,6 +79,8 @@ export class PolicyPage {
 
   // Per-mandate UI state for running and tightening.
   protected runScenario: Record<string, string> = {};
+  /** '' = wait for a real answer (default); otherwise a demo/testing convenience — see ApiService.startRun. */
+  protected runSimulateAnswer: Record<string, '' | 'approve' | 'decline'> = {};
   protected tightenOpen = signal<string | null>(null);
   protected tLimit: number | null = null;
   protected tBlock = '';
@@ -175,8 +177,9 @@ export class PolicyPage {
 
   protected startRun(m: Mandate) {
     const scenario = this.runScenario[m.id] ?? m.scenario_id ?? 'SCEN0000';
+    const simulate = this.runSimulateAnswer[m.id] || undefined;
     this.guard(async () => {
-      const run = await this.api.startRun(scenario, m.id);
+      const run = await this.api.startRun(scenario, m.id, simulate);
       await this.router.navigate(['/activity'], { queryParams: { run: run.id } });
     });
   }

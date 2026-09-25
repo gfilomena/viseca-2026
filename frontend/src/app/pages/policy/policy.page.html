@@ -158,8 +158,14 @@
                         <select [(ngModel)]="runScenario[m.id]" aria-label="Scenario to replay">
                           @for (s of scenarios(); track s.scenario_id) { <option [value]="s.scenario_id">{{ s.scenario_id }} · {{ s.scenario_name }}</option> }
                         </select>
+                        <select [(ngModel)]="runSimulateAnswer[m.id]" aria-label="If the agent's purchase needs your approval">
+                          <option value="">If asked: wait for me to answer</option>
+                          <option value="approve">If asked: simulate approve (demo)</option>
+                          <option value="decline">If asked: simulate decline (demo)</option>
+                        </select>
                         <button class="btn primary" (click)="startRun(m)" [disabled]="busy()">Start run</button>
                       </div>
+                      <p class="faint">Simulating an answer is for demos and testing only: the purchase is still paused and shown as "asked you" first, then answered automatically a moment later instead of waiting for you.</p>
                     </section>
 
                     @if (tightenOpen() === m.id) {
