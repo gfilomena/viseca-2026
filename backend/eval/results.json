@@ -1,0 +1,451 @@
+{
+  "caseResults": [
+    {
+      "id": "1-hotel",
+      "pass": null,
+      "reason": "(no ANTHROPIC_API_KEY — not graded)",
+      "hard_rules": [
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "<=",
+          "value": 400,
+          "currency": "CHF",
+          "scope": "purchase"
+        },
+        {
+          "field": "items.item_category",
+          "operator": "in",
+          "value": [
+            "hotel"
+          ]
+        }
+      ],
+      "open_questions": [
+        "Is the booking specifically for a hotel near Zurich main station?",
+        "Are the dates fixed as 12 to 14 October, and do you want exactly 2 nights?",
+        "Should the booking be under the merchant category 'hotel'?"
+      ]
+    },
+    {
+      "id": "2-monitor",
+      "pass": null,
+      "reason": "(no ANTHROPIC_API_KEY — not graded)",
+      "hard_rules": [
+        {
+          "field": "items.attribute.size",
+          "operator": "=",
+          "value": "27"
+        },
+        {
+          "field": "items.item_id",
+          "operator": "in",
+          "value": [
+            "IT0017"
+          ]
+        },
+        {
+          "field": "merchant.prior_approved_purchases",
+          "operator": ">=",
+          "value": 1
+        },
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "<=",
+          "value": 400,
+          "currency": "CHF",
+          "scope": "purchase"
+        }
+      ],
+      "open_questions": [
+        "What delivery options and return policies are acceptable?",
+        "Is the size exactly 27-inch or approximately?"
+      ]
+    },
+    {
+      "id": "3-spotify",
+      "pass": null,
+      "reason": "(no ANTHROPIC_API_KEY — not graded)",
+      "hard_rules": [
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "<=",
+          "value": 15,
+          "currency": "CHF",
+          "scope": "period",
+          "period_days": 30
+        },
+        {
+          "field": "items.item_category",
+          "operator": "in",
+          "value": [
+            "subscriptions"
+          ]
+        }
+      ],
+      "open_questions": [
+        "Confirm that the Spotify subscription corresponds to item category 'subscriptions'.",
+        "Confirm that the time period for spending limit is exactly 30 days/month."
+      ]
+    },
+    {
+      "id": "4-swiss",
+      "pass": null,
+      "reason": "(no ANTHROPIC_API_KEY — not graded)",
+      "hard_rules": [
+        {
+          "field": "merchant.merchant_country",
+          "operator": "in",
+          "value": [
+            "CH"
+          ]
+        },
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "<=",
+          "value": 200,
+          "currency": "CHF",
+          "scope": "purchase"
+        }
+      ],
+      "open_questions": []
+    },
+    {
+      "id": "5-chf-only",
+      "pass": null,
+      "reason": "(no ANTHROPIC_API_KEY — not graded)",
+      "hard_rules": [
+        {
+          "field": "authorization.currency",
+          "operator": "in",
+          "value": [
+            "CHF"
+          ]
+        },
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "<=",
+          "value": 80,
+          "currency": "CHF",
+          "scope": "period",
+          "period_days": 7
+        },
+        {
+          "field": "merchant.merchant_category",
+          "operator": "in",
+          "value": [
+            "groceries"
+          ]
+        }
+      ],
+      "open_questions": []
+    },
+    {
+      "id": "6-new-only",
+      "pass": null,
+      "reason": "(no ANTHROPIC_API_KEY — not graded)",
+      "hard_rules": [
+        {
+          "field": "items.item_category",
+          "operator": "in",
+          "value": [
+            "electronics"
+          ]
+        },
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "<=",
+          "value": 600,
+          "currency": "CHF",
+          "scope": "purchase"
+        }
+      ],
+      "open_questions": [
+        "Please confirm how to identify 'new' items versus second-hand or refurbished, since no product attribute or category is provided to filter these reliably."
+      ]
+    },
+    {
+      "id": "7-exact-model",
+      "pass": null,
+      "reason": "(no ANTHROPIC_API_KEY — not graded)",
+      "hard_rules": [
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "<=",
+          "value": 350,
+          "currency": "CHF",
+          "scope": "purchase"
+        },
+        {
+          "field": "basket.unrequested_lines",
+          "operator": "<=",
+          "value": 0
+        }
+      ],
+      "open_questions": [
+        "Confirm that product ID IT0045 matches the Sony WH-1000XM5 headphones exactly."
+      ]
+    },
+    {
+      "id": "8-two-sizes",
+      "pass": null,
+      "reason": "(no ANTHROPIC_API_KEY — not graded)",
+      "hard_rules": [
+        {
+          "field": "items.item_category",
+          "operator": "in",
+          "value": [
+            "sporting_goods"
+          ]
+        },
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "<=",
+          "value": 180,
+          "currency": "CHF",
+          "scope": "purchase"
+        }
+      ],
+      "open_questions": [
+        "Is there a preference for a specific running shoe model or item ID?"
+      ]
+    },
+    {
+      "id": "9-free-returns",
+      "pass": null,
+      "reason": "(no ANTHROPIC_API_KEY — not graded)",
+      "hard_rules": [
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "=",
+          "value": 150,
+          "currency": "CHF",
+          "scope": "purchase"
+        }
+      ],
+      "open_questions": [
+        "Which jacket do you want to buy for CHF 150 — specify item ID or category if known.",
+        "Confirm how to enforce 'Only free returns, no return shipping fee ever' since this return shipping fee rule cannot be directly encoded."
+      ]
+    },
+    {
+      "id": "10-named-merchants",
+      "pass": null,
+      "reason": "(no ANTHROPIC_API_KEY — not graded)",
+      "hard_rules": [
+        {
+          "field": "items.item_category",
+          "operator": "in",
+          "value": [
+            "groceries"
+          ]
+        },
+        {
+          "field": "merchant.merchant_category",
+          "operator": "in",
+          "value": [
+            "groceries"
+          ]
+        },
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "<=",
+          "value": 100,
+          "currency": "CHF",
+          "scope": "period",
+          "period_days": 7
+        }
+      ],
+      "open_questions": [
+        "Are the only allowed merchants Migros and Coop? Please confirm merchant restrictions."
+      ]
+    },
+    {
+      "id": "11-electronics-familiar",
+      "pass": null,
+      "reason": "(no ANTHROPIC_API_KEY — not graded)",
+      "hard_rules": [
+        {
+          "field": "items.item_category",
+          "operator": "in",
+          "value": [
+            "electronics"
+          ]
+        },
+        {
+          "field": "merchant.prior_approved_purchases",
+          "operator": ">=",
+          "value": 1
+        },
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "<=",
+          "value": 500,
+          "currency": "CHF",
+          "scope": "purchase"
+        },
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "<=",
+          "value": 1000,
+          "currency": "CHF",
+          "scope": "period",
+          "period_days": 30
+        }
+      ],
+      "open_questions": [
+        "Does \"shops I've used before\" mean any prior purchase with the merchant or something else?",
+        "Confirm the exact rolling period for the monthly spending limit (assumed 30 days)."
+      ]
+    },
+    {
+      "id": "12-no-product",
+      "pass": null,
+      "reason": "(no ANTHROPIC_API_KEY — not graded)",
+      "hard_rules": [
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "<=",
+          "value": 50,
+          "currency": "CHF",
+          "scope": "purchase"
+        }
+      ],
+      "open_questions": [
+        "What product or category are you considering buying?",
+        "Do you want to limit purchases to certain merchants or countries?",
+        "Should the purchases be for delivery, pickup, or digital?"
+      ]
+    },
+    {
+      "id": "13-weekends",
+      "pass": null,
+      "reason": "(no ANTHROPIC_API_KEY — not graded)",
+      "hard_rules": [
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "<=",
+          "value": 60,
+          "currency": "CHF",
+          "scope": "purchase"
+        },
+        {
+          "field": "items.item_category",
+          "operator": "in",
+          "value": [
+            "dining",
+            "food_delivery"
+          ]
+        }
+      ],
+      "open_questions": [
+        "Confirm if 'weekends only' means purchases are allowed only on Saturdays and Sundays."
+      ]
+    },
+    {
+      "id": "14-exclusion",
+      "pass": null,
+      "reason": "(no ANTHROPIC_API_KEY — not graded)",
+      "hard_rules": [
+        {
+          "field": "items.item_category",
+          "operator": "not_in",
+          "value": [
+            "gift_card",
+            "subscriptions"
+          ]
+        },
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "<=",
+          "value": 300,
+          "currency": "CHF",
+          "scope": "purchase"
+        }
+      ],
+      "open_questions": []
+    },
+    {
+      "id": "15-approve-uncertain",
+      "pass": null,
+      "reason": "(no ANTHROPIC_API_KEY — not graded)",
+      "hard_rules": [
+        {
+          "field": "authorization.billing_amount_chf",
+          "operator": "<=",
+          "value": 20,
+          "currency": "CHF",
+          "scope": "purchase"
+        }
+      ],
+      "open_questions": []
+    }
+  ],
+  "e2eResults": [
+    {
+      "id": "e2e-1-monitor-familiar",
+      "pass": true,
+      "results": [
+        {
+          "authorization_id": "AU0035",
+          "expected": "approved",
+          "actual": "approved",
+          "reasonOk": true,
+          "pass": true,
+          "message": "Approved CHF 289.00 at PixelHarbor: it meets all 2 of your rules."
+        },
+        {
+          "authorization_id": "AU0037",
+          "expected": "declined",
+          "actual": "declined",
+          "reasonOk": true,
+          "pass": true,
+          "message": "Declined CHF 520.00 at PixelHarbor. Each order at most CHF 400 (incl. delivery): Charged CHF 520.00, incl. delivery 0.00; limit CHF 400.00. Note: the shop's product text tried to instruct the payment system; it was ignored."
+        }
+      ]
+    },
+    {
+      "id": "e2e-2-chf-only",
+      "pass": true,
+      "results": [
+        {
+          "authorization_id": "AU0038",
+          "expected": "declined",
+          "actual": "declined",
+          "reasonOk": true,
+          "pass": true,
+          "message": "Declined CHF 391.50 at HarborByte. Currency one of: CHF: Charged in USD."
+        },
+        {
+          "authorization_id": "AU0035",
+          "expected": "approved",
+          "actual": "approved",
+          "reasonOk": true,
+          "pass": true,
+          "message": "Approved CHF 289.00 at PixelHarbor: it meets all 3 of your rules."
+        }
+      ]
+    },
+    {
+      "id": "e2e-3-electronics-familiar",
+      "pass": true,
+      "results": [
+        {
+          "authorization_id": "AU0037",
+          "expected": "declined",
+          "actual": "declined",
+          "reasonOk": true,
+          "pass": true,
+          "message": "Declined CHF 520.00 at PixelHarbor. Each order at most CHF 500 (incl. delivery): Charged CHF 520.00, incl. delivery 0.00; limit CHF 500.00. Note: the shop's product text tried to instruct the payment system; it was ignored."
+        },
+        {
+          "authorization_id": "AU0035",
+          "expected": "approved",
+          "actual": "approved",
+          "reasonOk": true,
+          "pass": true,
+          "message": "Approved CHF 289.00 at PixelHarbor: it meets all 4 of your rules."
+        }
+      ]
+    }
+  ]
+}

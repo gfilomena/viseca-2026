@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
 import { roundHalfEven } from '../domain/money.ts';
-import type { InterpretedRequest, PurchaseOffer, ShopOptions } from './shopping-agent.ts';
+import { estimateDeliveryFee, type InterpretedRequest, type PurchaseOffer, type ShopOptions } from './shopping-agent.ts';
 
 /**
  * OpenAI-backed interpreter for the shop chat's free-text purchase requests
@@ -83,7 +83,7 @@ function toInterpretedRequest(text: string, o: OfferT, opts: ShopOptions, device
     customer_device_id: device,
     item_details: [o.size ? `size ${o.size}` : '', digital ? '' : 'returns accepted within 30 days'].filter(Boolean).join('; '),
     order_returnable: digital ? 'not_applicable' : 'true',
-    delivery_fee: itemCategory === 'groceries' ? 6 : 0,
+    delivery_fee: estimateDeliveryFee(itemCategory),
     fulfillment_method: digital ? 'digital' : o.fulfillment_method,
   };
   return { offer, item, merchant, item_candidates: item ? [item] : [], notes: o.notes, questions: o.questions };

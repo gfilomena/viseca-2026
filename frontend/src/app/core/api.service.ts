@@ -25,7 +25,9 @@ export class ApiService {
   revoke = (id: string) => this.send<Mandate>('DELETE', `/mandates/${id}`);
 
   runs = () => this.get<Run[]>('/runs');
-  startRun = (scenario_id: string, mandate_id: string) => this.send<Run>('POST', '/runs', { scenario_id, mandate_id });
+  /** simulateStepUpAnswer is a demo/testing convenience: unset (default), a step_up still needs a real answer. */
+  startRun = (scenario_id: string, mandate_id: string, simulateStepUpAnswer?: 'approve' | 'decline') =>
+    this.send<Run>('POST', '/runs', { scenario_id, mandate_id, simulate_step_up_answer: simulateStepUpAnswer });
   decisions = (q: { run_id?: string; status?: string } = {}) =>
     this.get<DecisionRow[]>(`/decisions?${new URLSearchParams(Object.entries(q).filter(([, v]) => v) as [string, string][])}`);
   decision = (id: string) => this.get<DecisionRow>(`/decisions/${encodeURIComponent(id)}`);

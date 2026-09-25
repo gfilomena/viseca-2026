@@ -118,7 +118,15 @@ export function withDeliveryContext(e: AuthorizationEvent, runId: string): Autho
   };
 }
 
-export async function startRun(scenarioId: string, mandateId: string, stepMs = 700): Promise<Run> {
+/**
+ * `simulateStepUpAnswer`, when set, is a demo/testing convenience only: it answers any
+ * step_up this run produces as if the customer had, after a short visible delay (so the
+ * "asked you" state is still shown, not skipped). It never affects the engine's own
+ * decision — only whether a *human still has to* click within the 120s window during a
+ * replay. Left unset (the normal path), a step_up sits pending for a real answer or
+ * expires exactly as it would for a real customer.
+ */
+export async function startRun(scenarioId: string, mandateId: string, stepMs = 700, simulateStepUpAnswer?: 'approve' | 'decline'): Promise<Run> {
   const m = getMandate(mandateId);
   if (m.status !== 'active') throw new PolicyError(m.status === 'revoked' ? 'This policy was revoked; create and confirm a new one.' : m.status === 'superseded' ? 'This policy was replaced by a newer one; use the active policy.' : 'Confirm the policy before the agent can shop.', 409);
   const authority = getDb().prepare('SELECT a.* FROM purchase_attempts p JOIN scenario_authorities a ON a.authority_id = p.authority_id WHERE p.scenario_id = ? LIMIT 1').get(scenarioId) as any;
@@ -143,7 +151,15 @@ export async function startRun(scenarioId: string, mandateId: string, stepMs = 7
           setRunStatus(run.id, 'completed', status === 'superseded' ? 'Stopped: the wallet policy was replaced by a newer one.' : 'Stopped: the customer revoked the wallet policy.');
           return;
         }
-        recordDecision(withDeliveryContext(e, run.id), run.id);
+        const { record } = recordDecision(withDeliveryContext(e, run.id), run.id);
+        if (record.status === 'pending' && simulateStepUpAnswer) {
+          const authorizationId = record.authorization_id;
+          setTimeout(() => {
+            resolveStepUp(authorizationId, simulateStepUpAnswer, 'Simulated customer answer (demo run).').catch(() => {
+              // Already answered or expired by the time this fired — nothing to do.
+            });
+          }, 1500);
+        }
         await new Promise((r) => setTimeout(r, stepMs));
       }
       setRunStatus(run.id, 'completed');

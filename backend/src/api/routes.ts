@@ -93,8 +93,8 @@ export async function routes(app: FastifyInstance) {
   app.get<{ Params: { id: string } }>('/api/runs/:id', async (req, reply) => {
     try { return getRun(req.params.id); } catch (e) { return fail(reply, e); }
   });
-  app.post<{ Body: { scenario_id: string; mandate_id: string; step_ms?: number } }>('/api/runs', async (req, reply) => {
-    try { return reply.code(201).send(await startRun(req.body.scenario_id, req.body.mandate_id, req.body.step_ms)); } catch (e) { return fail(reply, e); }
+  app.post<{ Body: { scenario_id: string; mandate_id: string; step_ms?: number; simulate_step_up_answer?: 'approve' | 'decline' } }>('/api/runs', async (req, reply) => {
+    try { return reply.code(201).send(await startRun(req.body.scenario_id, req.body.mandate_id, req.body.step_ms, req.body.simulate_step_up_answer)); } catch (e) { return fail(reply, e); }
   });
   app.get<{ Querystring: { run_id?: string; status?: string } }>('/api/decisions', async (req) => {
     const runs = new Map(listRuns().map((r) => [r.id, r]));

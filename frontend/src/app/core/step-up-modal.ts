@@ -6,8 +6,11 @@ import { StepUpService } from './step-up.service';
 /**
  * Global modal for purchases paused by wallet control (step_up). It shows why the
  * purchase was paused and what exactly would be bought, and asks the customer to
- * approve or decline. It opens only when the customer clicks a pending transaction;
- * closing it (Esc) leaves the purchase pending. Nothing is ever approved by default.
+ * approve or decline within the countdown (`human_deadline_at`, 120s). It opens on
+ * its own for any pending purchase — like a payment-approval notification — so a
+ * step_up is never missed; closing it (Esc) leaves the purchase pending rather than
+ * answering it. Nothing is ever approved by default: an unanswered purchase is
+ * declined automatically when the window expires (backend `expireStalePending`).
  */
 @Component({
   selector: 'app-step-up-modal',

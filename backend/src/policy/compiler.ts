@@ -253,6 +253,8 @@ export function compileInstruction(instruction: string, catalogue: CatalogueItem
   const regular = /\b(use|shop at|buy from|order from)\s+regularly\b|\bregular (shop|seller|store)s?\b/i.exec(text);
   const before = /\b(used|bought from|shopped at|ordered from|bought at)\s+before\b|\bshops? i know\b|\bfamiliar (shop|seller)s?\b/i.exec(text);
   if (regular) {
+    // "regularly" reads as a stronger claim than "before", so it gets a higher bar (3 vs 1 prior purchase);
+    // both are explained to the customer in the generated rule text, so the threshold is never hidden.
     add({ field: FIELDS.familiarity, operator: '>=', value: 3 }, 'The shop must be one you use regularly: at least 3 earlier approved purchases on this card at that exact merchant (lookalike names do not count).', regular[0]);
   } else if (before) {
     add({ field: FIELDS.familiarity, operator: '>=', value: 1 }, 'The shop must be one you have bought from before: at least 1 earlier approved purchase on this card at that exact merchant (lookalike names do not count).', before[0]);

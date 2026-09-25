@@ -66,6 +66,8 @@ export function isLookalike(candidate: string, known: string): boolean {
   const a = norm(candidate);
   const b = norm(known);
   if (a === b) return true;
+  // Below 6 chars, edit distance 2 would match unrelated short names too often (e.g. "Coop"/"Coon").
   if (Math.min(a.length, b.length) < 6) return false;
+  // Catches typo-squats like "Mlgros"/"Migros" without flagging genuinely different names.
   return levenshtein(a, b) <= 2;
 }
